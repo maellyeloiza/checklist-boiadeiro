@@ -11,76 +11,52 @@
 
     <script>
         // ============================================
-        // CONFIGURAÇÃO DO SUPABASE
-        // ============================================
-        const SUPABASE_URL = 'https://yIaxdmzkmlabrcdtuzbn.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_YCGb5Bk3btIBPPuQ9cDYTA_7kke5XoL';
-
-        console.log('🚀 App iniciando...');
-
-        // ============================================
-        // DADOS GLOBAIS
+        // DADOS GLOBAIS (LOCALSTORAGE)
         // ============================================
         let checklists = [];
         let motoristaAtual = null;
         let fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
+        let proximoId = 1;
 
         // ============================================
-        // FUNÇÕES DO SUPABASE
+        // FUNÇÕES DO LOCALSTORAGE
         // ============================================
-        async function carregarDados() {
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists?select=*&order=id.desc`, {
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    checklists = await response.json();
-                    console.log('✅ Dados carregados:', checklists.length);
-                } else {
-                    console.error('❌ Erro ao carregar:', response.status);
+        function carregarDados() {
+            const saved = localStorage.getItem('@ChecklistBoiadeiro:checklists');
+            if (saved) {
+                checklists = JSON.parse(saved);
+                console.log('✅ Dados carregados:', checklists.length);
+                // Atualizar próximo ID
+                if (checklists.length > 0) {
+                    proximoId = Math.max(...checklists.map(c => c.id)) + 1;
                 }
-            } catch (error) {
-                console.error('❌ Erro:', error);
+            } else {
+                // Dados de exemplo
+                checklists = [
+                    { id: 1, motorista: 'João Silva', placa: 'ABC-1234', modelo: 'Truck', foto_gaiola_dentro: '📸 Foto tirada', foto_gaiola_fora: '📸 Foto tirada', tem_anomalia: false, descricao_anomalia: '', latitude: '-23.550520', longitude: '-46.633308', localizacao: 'São Paulo - SP', status: 'Concluído', criado_em: new Date().toISOString() },
+                    { id: 2, motorista: 'Carlos Santos', placa: 'XYZ-5678', modelo: 'Carreta 36', foto_gaiola_dentro: '📸 Foto tirada', foto_gaiola_fora: '📸 Foto tirada', tem_anomalia: true, descricao_anomalia: 'Pneu dianteiro danificado', latitude: '-22.906847', longitude: '-47.061200', localizacao: 'Campinas - SP', status: 'Concluído', criado_em: new Date().toISOString() },
+                    { id: 3, motorista: 'Pedro Oliveira', placa: 'DEF-9012', modelo: 'Julieta', foto_gaiola_dentro: '📸 Foto tirada', foto_gaiola_fora: '📸 Foto tirada', tem_anomalia: false, descricao_anomalia: '', latitude: '-21.175000', longitude: '-47.810000', localizacao: 'Ribeirão Preto - SP', status: 'Pendente', criado_em: new Date().toISOString() }
+                ];
+                salvarDados();
+                console.log('📝 Dados de exemplo criados');
+            }
+            if (checklists.length > 0) {
+                proximoId = Math.max(...checklists.map(c => c.id)) + 1;
             }
         }
 
-        async function salvarChecklistBD(checklist) {
-            try {
-                console.log('📝 Enviando checklist...');
-                
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists`, {
-                    method: 'POST',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json',
-                        'Prefer': 'return=representation'
-                    },
-                    body: JSON.stringify(checklist)
-                });
-                
-                console.log('📡 Status:', response.status);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Checklist salvo!');
-                    return data[0];
-                } else {
-                    const error = await response.text();
-                    console.error('❌ Erro:', error);
-                    alert('❌ Erro ' + response.status + ': ' + error);
-                    return null;
-                }
-            } catch (error) {
-                console.error('❌ Erro:', error);
-                alert('❌ Erro de conexão: ' + error.message);
-                return null;
-            }
+        function salvarDados() {
+            localStorage.setItem('@ChecklistBoiadeiro:checklists', JSON.stringify(checklists));
+            console.log('💾 Dados salvos no LocalStorage');
+        }
+
+        function salvarChecklistLocal(checklist) {
+            checklist.id = proximoId++;
+            checklist.criado_em = new Date().toISOString();
+            checklists.unshift(checklist);
+            salvarDados();
+            console.log('✅ Checklist salvo!');
+            return checklist;
         }
 
         // ============================================
@@ -262,6 +238,7 @@
                         </form>
                         <div class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
                             <p>👨‍🌾 Digite seu nome e a placa do veículo</p>
+                            <p class="mt-1 text-green-600">💾 Dados salvos localmente (funciona sem internet)</p>
                         </div>
                         <div class="mt-8 text-center text-xs text-gray-500">© 2026 Checklist Boiadeiro</div>
                     </div>
@@ -300,7 +277,7 @@
                     <div class="flex flex-wrap justify-between items-center mb-6">
                         <div>
                             <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📋 Dashboard</h1>
-                            <p class="text-gray-500 dark:text-gray-400">Bem-vindo, <strong>${motorista.nome}</strong>!</p>
+                            <p class="text-gray-500 dark:text-gray-400">Bem-vindo, <strong>${motorista.nome}</strong>! 🐂</p>
                             <p class="text-xs text-gray-400">🚛 ${motorista.placa}</p>
                         </div>
                         <div class="flex flex-wrap gap-2 mt-3 md:mt-0">
@@ -339,6 +316,7 @@
                                 <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
                             </div>
                         `).join('')}
+                        ${meusChecklists.length > 5 ? `<p class="text-center text-sm text-gray-500 mt-2">+ ${meusChecklists.length - 5} mais...</p>` : ''}
                     </div>
                 </div>
             `;
@@ -522,8 +500,8 @@
                 motorista: motorista.nome,
                 placa: motorista.placa,
                 modelo: modelo,
-                foto_gaiola_dentro: fotos.gaiolaDentro,
-                foto_gaiola_fora: fotos.gaiolaFora,
+                foto_gaiola_dentro: fotos.gaiolaDentro || '📸 Foto tirada',
+                foto_gaiola_fora: fotos.gaiolaFora || '📸 Foto tirada',
                 foto_anomalia: fotos.anomalia || null,
                 tem_anomalia: temAnomalia,
                 descricao_anomalia: descricaoAnomalia || null,
@@ -534,10 +512,10 @@
                 criado_em: new Date().toISOString()
             };
 
-            const resultado = await salvarChecklistBD(checklist);
+            // Salvar no LocalStorage
+            const resultado = salvarChecklistLocal(checklist);
             if (resultado) {
-                checklists.unshift(resultado);
-                alert('✅ Checklist salvo com sucesso!');
+                alert('✅ Checklist salvo com sucesso! (Dados salvos localmente)');
                 showDashboard();
             }
         }
@@ -612,12 +590,8 @@
         // ============================================
         // INICIAR
         // ============================================
-        async function iniciarApp() {
-            await carregarDados();
-            showLogin();
-        }
-        
-        iniciarApp();
+        carregarDados();
+        showLogin();
     </script>
 </body>
 </html>
