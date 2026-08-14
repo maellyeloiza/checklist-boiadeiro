@@ -35,7 +35,6 @@
                     { id: 2, motorista: 'Carlos Santos', placa: 'XYZ-5678', modelo: 'Carreta 36', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: true, descricao_anomalia: 'Pneu dianteiro danificado', latitude: '-22.906847', longitude: '-47.061200', localizacao: 'Campinas - SP', status: 'Concluído', criado_em: new Date().toISOString() }
                 ];
                 salvarDados();
-                console.log('📝 Dados de exemplo criados');
             }
             if (checklists.length > 0) {
                 proximoId = Math.max(...checklists.map(c => c.id)) + 1;
@@ -44,7 +43,7 @@
 
         function salvarDados() {
             localStorage.setItem('@ChecklistBoiadeiro:checklists', JSON.stringify(checklists));
-            console.log('💾 Dados salvos no LocalStorage');
+            console.log('💾 Dados salvos');
         }
 
         function salvarChecklistLocal(checklist) {
@@ -52,20 +51,18 @@
             checklist.criado_em = new Date().toISOString();
             checklists.unshift(checklist);
             salvarDados();
-            console.log('✅ Checklist salvo!');
             return checklist;
         }
 
         // ============================================
-        // FUNÇÃO PARA VISUALIZAR FOTO
+        // FUNÇÃO PARA VER FOTO
         // ============================================
         function verFoto(base64, titulo) {
-            if (!base64 || base64 === '' || base64 === '📸 Foto tirada') {
-                alert('⚠️ Nenhuma foto disponível para esta imagem!');
+            if (!base64 || base64 === '') {
+                alert('⚠️ Nenhuma foto disponível!');
                 return;
             }
             
-            // Abrir em nova janela
             const win = window.open('', '_blank');
             win.document.write(`
                 <html>
@@ -78,58 +75,159 @@
                             align-items: center;
                             min-height: 100vh;
                             margin: 0;
-                            background: #f0f0f0;
+                            background: #1a1a2e;
                             font-family: Arial, sans-serif;
                         }
                         .container {
                             text-align: center;
                             background: white;
-                            padding: 20px;
-                            border-radius: 12px;
-                            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                            padding: 30px;
+                            border-radius: 16px;
+                            box-shadow: 0 8px 40px rgba(0,0,0,0.5);
                             max-width: 90%;
                         }
                         h2 {
                             color: #2d3748;
                             margin-top: 0;
+                            font-size: 24px;
                         }
                         img {
                             max-width: 100%;
-                            max-height: 70vh;
+                            max-height: 75vh;
                             border-radius: 8px;
-                            border: 2px solid #e2e8f0;
+                            border: 3px solid #e2e8f0;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                         }
                         .info {
                             margin-top: 15px;
                             color: #718096;
                             font-size: 14px;
                         }
-                        button {
+                        .buttons {
                             margin-top: 15px;
+                            display: flex;
+                            gap: 10px;
+                            justify-content: center;
+                            flex-wrap: wrap;
+                        }
+                        button {
                             padding: 10px 30px;
-                            background: #4CAF50;
-                            color: white;
                             border: none;
                             border-radius: 8px;
                             font-size: 16px;
                             cursor: pointer;
+                            transition: all 0.3s;
                         }
-                        button:hover {
-                            background: #45a049;
+                        .btn-fechar {
+                            background: #e53e3e;
+                            color: white;
+                        }
+                        .btn-fechar:hover {
+                            background: #c53030;
+                        }
+                        .btn-download {
+                            background: #48bb78;
+                            color: white;
+                        }
+                        .btn-download:hover {
+                            background: #38a169;
                         }
                     </style>
                 </head>
                 <body>
                     <div class="container">
                         <h2>📸 ${titulo}</h2>
-                        <img src="${base64}" alt="${titulo}" />
+                        <img src="${base64}" alt="${titulo}" id="foto" />
                         <div class="info">Clique com o botão direito para salvar a imagem</div>
-                        <button onclick="window.close()">✕ Fechar</button>
+                        <div class="buttons">
+                            <button class="btn-download" onclick="baixarFoto()">⬇️ Baixar Foto</button>
+                            <button class="btn-fechar" onclick="window.close()">✕ Fechar</button>
+                        </div>
                     </div>
+                    <script>
+                        function baixarFoto() {
+                            const link = document.createElement('a');
+                            link.download = '${titulo.replace(/[^a-zA-Z0-9]/g, '_')}.jpg';
+                            link.href = document.getElementById('foto').src;
+                            link.click();
+                        }
+                    <\/script>
                 </body>
                 </html>
             `);
             win.document.close();
+        }
+
+        // ============================================
+        // FUNÇÃO PARA TIRAR FOTO (ALTA QUALIDADE)
+        // ============================================
+        function tirarFoto(tipo) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        // MELHORADO: 800x600 pixels (antes era 300x225)
+                        const maxWidth = 800;
+                        const maxHeight = 600;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // MELHORADO: Qualidade 80% (antes era 20%)
+                        const imagemBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                        fotos[tipo] = imagemBase64;
+                        
+                        const preview = document.getElementById(`preview_${tipo}`);
+                        if (preview) {
+                            preview.src = imagemBase64;
+                            preview.classList.remove('hidden');
+                        }
+                        
+                        const btn = document.getElementById(`btn_foto_${tipo}`);
+                        if (btn) {
+                            btn.textContent = '✅ Foto tirada!';
+                            btn.className = 'w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition';
+                        }
+                        
+                        const status = document.getElementById(`status_${tipo}`);
+                        if (status) {
+                            status.textContent = '✅ Foto tirada!';
+                            status.className = 'text-xs text-green-500 mt-1';
+                        }
+                        
+                        verificarFotos();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
         }
 
         // ============================================
@@ -181,76 +279,6 @@
                     resolve({ latitude: null, longitude: null, localizacao: 'GPS não disponível' });
                 }
             });
-        }
-
-        // ============================================
-        // FUNÇÃO PARA TIRAR FOTO
-        // ============================================
-        function tirarFoto(tipo) {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.capture = 'environment';
-            
-            input.onchange = function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const maxWidth = 300;
-                        const maxHeight = 225;
-                        let width = img.width;
-                        let height = img.height;
-                        
-                        if (width > height) {
-                            if (width > maxWidth) {
-                                height *= maxWidth / width;
-                                width = maxWidth;
-                            }
-                        } else {
-                            if (height > maxHeight) {
-                                width *= maxHeight / height;
-                                height = maxHeight;
-                            }
-                        }
-                        
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        
-                        const imagemBase64 = canvas.toDataURL('image/jpeg', 0.2);
-                        fotos[tipo] = imagemBase64;
-                        
-                        const preview = document.getElementById(`preview_${tipo}`);
-                        if (preview) {
-                            preview.src = imagemBase64;
-                            preview.classList.remove('hidden');
-                        }
-                        
-                        const btn = document.getElementById(`btn_foto_${tipo}`);
-                        if (btn) {
-                            btn.textContent = '✅ Foto tirada!';
-                            btn.className = 'w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition';
-                        }
-                        
-                        const status = document.getElementById(`status_${tipo}`);
-                        if (status) {
-                            status.textContent = '✅ Foto tirada!';
-                            status.className = 'text-xs text-green-500 mt-1';
-                        }
-                        
-                        verificarFotos();
-                    };
-                    img.src = event.target.result;
-                };
-                reader.readAsDataURL(file);
-            };
-            input.click();
         }
 
         // ============================================
@@ -311,7 +339,7 @@
                         </form>
                         <div class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
                             <p>👨‍🌾 Digite seu nome e a placa do veículo</p>
-                            <p class="mt-1 text-green-600">💾 Dados salvos localmente</p>
+                            <p class="mt-1 text-green-600">📸 Fotos em alta qualidade!</p>
                         </div>
                         <div class="mt-8 text-center text-xs text-gray-500">© 2026 Checklist Boiadeiro</div>
                     </div>
@@ -417,6 +445,7 @@
                         <div>
                             <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📸 Novo Checklist</h1>
                             <p class="text-gray-500 dark:text-gray-400">Preencha as informações da vistoria</p>
+                            <p class="text-xs text-blue-600">📸 Fotos em alta qualidade (800x600)</p>
                         </div>
                         <div class="flex gap-2 mt-3 md:mt-0">
                             <button onclick="showDashboard()" class="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">← Voltar</button>
@@ -454,7 +483,7 @@
                                         <button type="button" id="btn_foto_gaiolaDentro" onclick="tirarFoto('gaiolaDentro')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
                                             📷 Tirar Foto
                                         </button>
-                                        <img id="preview_gaiolaDentro" class="hidden w-full h-24 object-cover rounded-lg mt-2 border">
+                                        <img id="preview_gaiolaDentro" class="hidden w-full h-32 object-cover rounded-lg mt-2 border">
                                         <p id="status_gaiolaDentro" class="text-xs text-red-500 mt-1">⚠️ Pendente</p>
                                     </div>
                                     <div>
@@ -462,7 +491,7 @@
                                         <button type="button" id="btn_foto_gaiolaFora" onclick="tirarFoto('gaiolaFora')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
                                             📷 Tirar Foto
                                         </button>
-                                        <img id="preview_gaiolaFora" class="hidden w-full h-24 object-cover rounded-lg mt-2 border">
+                                        <img id="preview_gaiolaFora" class="hidden w-full h-32 object-cover rounded-lg mt-2 border">
                                         <p id="status_gaiolaFora" class="text-xs text-red-500 mt-1">⚠️ Pendente</p>
                                     </div>
                                 </div>
@@ -483,7 +512,7 @@
                                     <button type="button" id="btn_foto_anomalia" onclick="tirarFoto('anomalia')" class="mt-2 w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
                                         📷 Foto da Anomalia
                                     </button>
-                                    <img id="preview_anomalia" class="hidden w-full h-24 object-cover rounded-lg mt-2 border">
+                                    <img id="preview_anomalia" class="hidden w-full h-32 object-cover rounded-lg mt-2 border">
                                 </div>
                             </div>
 
@@ -573,8 +602,8 @@
                 motorista: motorista.nome,
                 placa: motorista.placa,
                 modelo: modelo,
-                foto_gaiola_dentro: fotos.gaiolaDentro || '',
-                foto_gaiola_fora: fotos.gaiolaFora || '',
+                foto_gaiola_dentro: fotos.gaiolaDentro,
+                foto_gaiola_fora: fotos.gaiolaFora,
                 foto_anomalia: fotos.anomalia || null,
                 tem_anomalia: temAnomalia,
                 descricao_anomalia: descricaoAnomalia || null,
@@ -593,7 +622,7 @@
         }
 
         // ============================================
-        // TELA DE HISTÓRICO (COM BOTÃO VER FOTO)
+        // TELA DE HISTÓRICO
         // ============================================
         function showHistorico() {
             const motorista = getMotoristaLogado();
