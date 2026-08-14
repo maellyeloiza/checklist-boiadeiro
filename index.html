@@ -35,15 +35,14 @@
                     }
                 });
                 checklists = await response.json();
-                console.log('✅ Dados carregados:', checklists.length, 'checklists');
+                console.log('✅ Dados carregados:', checklists.length);
             } catch (error) {
-                console.error('❌ Erro ao carregar dados:', error);
+                console.error('❌ Erro:', error);
             }
         }
 
         async function salvarChecklistBD(checklist) {
             try {
-                console.log('📝 Enviando checklist...');
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists`, {
                     method: 'POST',
                     headers: {
@@ -58,14 +57,15 @@
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('❌ Erro:', errorText);
-                    throw new Error(`Erro ${response.status}`);
+                    alert('❌ Erro ao salvar: ' + errorText);
+                    return null;
                 }
                 
                 const data = await response.json();
-                console.log('✅ Checklist salvo!');
                 return data[0];
             } catch (error) {
-                console.error('❌ Erro ao salvar:', error);
+                console.error('❌ Erro:', error);
+                alert('❌ Erro: ' + error.message);
                 return null;
             }
         }
@@ -122,7 +122,7 @@
         }
 
         // ============================================
-        // FUNÇÃO PARA TIRAR FOTO (QUALIDADE BAIXA)
+        // FUNÇÃO PARA TIRAR FOTO (COMPRIMIDA)
         // ============================================
         function tirarFoto(tipo) {
             const input = document.createElement('input');
@@ -132,81 +132,89 @@
             
             input.onchange = function(e) {
                 const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const img = new Image();
-                        img.onload = function() {
-                            const canvas = document.createElement('canvas');
-                            // REDUZIR PARA 400x300 (BEM PEQUENO)
-                            const maxWidth = 400;
-                            const maxHeight = 300;
-                            let width = img.width;
-                            let height = img.height;
-                            
-                            if (width > height) {
-                                if (width > maxWidth) {
-                                    height *= maxWidth / width;
-                                    width = maxWidth;
-                                }
-                            } else {
-                                if (height > maxHeight) {
-                                    width *= maxHeight / height;
-                                    height = maxHeight;
-                                }
-                            }
-                            
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-                            
-                            // QUALIDADE 30% (BEM BAIXA PARA CABER)
-                            const imagemBase64 = canvas.toDataURL('image/jpeg', 0.3);
-                            fotos[tipo] = imagemBase64;
-                            
-                            // Mostrar preview
-                            const preview = document.getElementById(`preview_${tipo}`);
-                            if (preview) {
-                                preview.src = imagemBase64;
-                                preview.classList.remove('hidden');
-                            }
-                            
-                            const btn = document.getElementById(`btn_foto_${tipo}`);
-                            if (btn) {
-                                btn.textContent = '✅ Foto tirada!';
-                                btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                                btn.classList.add('bg-green-500', 'hover:bg-green-600');
-                            }
-                            
-                            // Verificar se todas as fotos foram tiradas
-                            verificarFotos();
-                        };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
+                if (!file) return;
+                
+                // Verificar tamanho do arquivo
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('⚠️ Imagem muito grande! Máximo 5MB.');
+                    return;
                 }
+                
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        // REDUZIR PARA 300x225
+                        const maxWidth = 300;
+                        const maxHeight = 225;
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // QUALIDADE 20%
+                        const imagemBase64 = canvas.toDataURL('image/jpeg', 0.2);
+                        fotos[tipo] = imagemBase64;
+                        
+                        // Mostrar preview
+                        const preview = document.getElementById(`preview_${tipo}`);
+                        if (preview) {
+                            preview.src = imagemBase64;
+                            preview.classList.remove('hidden');
+                        }
+                        
+                        const btn = document.getElementById(`btn_foto_${tipo}`);
+                        if (btn) {
+                            btn.textContent = '✅ Foto tirada!';
+                            btn.className = 'w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition';
+                        }
+                        
+                        const status = document.getElementById(`status_${tipo}`);
+                        if (status) {
+                            status.textContent = '✅ Foto tirada!';
+                            status.className = 'text-xs text-green-500 mt-1';
+                        }
+                        
+                        verificarFotos();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
             };
             input.click();
         }
 
         // ============================================
-        // VERIFICAR SE TODAS AS FOTOS FORAM TIRADAS
+        // VERIFICAR FOTOS
         // ============================================
         function verificarFotos() {
             const btnSalvar = document.getElementById('btnSalvar');
-            if (btnSalvar) {
-                if (fotos.gaiolaDentro && fotos.gaiolaFora) {
-                    btnSalvar.disabled = false;
-                    btnSalvar.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                    btnSalvar.classList.add('bg-green-500', 'hover:bg-green-600');
-                    btnSalvar.textContent = '✅ Salvar Checklist';
-                } else {
-                    btnSalvar.disabled = true;
-                    btnSalvar.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    btnSalvar.classList.remove('bg-green-500', 'hover:bg-green-600');
-                    btnSalvar.textContent = '📸 Tire as fotos obrigatórias';
-                }
+            if (!btnSalvar) return;
+            
+            if (fotos.gaiolaDentro && fotos.gaiolaFora) {
+                btnSalvar.disabled = false;
+                btnSalvar.className = 'flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition';
+                btnSalvar.textContent = '✅ Salvar Checklist';
+            } else {
+                btnSalvar.disabled = true;
+                btnSalvar.className = 'flex-1 bg-gray-400 cursor-not-allowed text-white font-bold py-3 rounded-lg transition';
+                btnSalvar.textContent = '📸 Tire as fotos obrigatórias';
             }
         }
 
@@ -333,7 +341,7 @@
         }
 
         // ============================================
-        // TELA DE NOVO CHECKLIST (FOTOS OBRIGATÓRIAS)
+        // TELA DE NOVO CHECKLIST (COM CÂMERA)
         // ============================================
         function showNovoChecklist() {
             const motorista = getMotoristaLogado();
@@ -364,7 +372,7 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
-                        <form onsubmit="salvarChecklist(event)" class="space-y-4">
+                        <form id="formChecklist" onsubmit="salvarChecklist(event)" class="space-y-4">
                             <!-- Veículo -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -387,7 +395,7 @@
                             <!-- Fotos OBRIGATÓRIAS -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                                 <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-3">📸 Fotos Obrigatórias *</h3>
-                                <p class="text-sm text-red-500 mb-3">⚠️ As duas fotos são obrigatórias para salvar!</p>
+                                <p class="text-sm text-red-500 mb-3">⚠️ Tire as duas fotos para habilitar o botão salvar!</p>
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
@@ -449,9 +457,6 @@
                     </div>
                 </div>
             `;
-
-            // Atualizar status das fotos
-            verificarFotos();
         }
 
         // ============================================
@@ -477,57 +482,16 @@
                 const btn = document.getElementById(`btn_foto_${tipo}`);
                 if (btn) {
                     btn.textContent = '📷 Tirar Foto';
-                    btn.classList.remove('bg-green-500', 'hover:bg-green-600');
-                    btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                    btn.className = 'w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition';
                 }
                 const status = document.getElementById(`status_${tipo}`);
                 if (status) {
                     status.textContent = '⚠️ Pendente';
-                    status.classList.remove('text-green-500');
-                    status.classList.add('text-red-500');
+                    status.className = 'text-xs text-red-500 mt-1';
                 }
             });
-            
             verificarFotos();
         }
-
-        // ============================================
-        // SOBRESCREVER verificarFotos para atualizar status
-        // ============================================
-        const verificarFotosOriginal = verificarFotos;
-        verificarFotos = function() {
-            // Atualizar status dos textos
-            ['gaiolaDentro', 'gaiolaFora'].forEach(tipo => {
-                const status = document.getElementById(`status_${tipo}`);
-                if (status) {
-                    if (fotos[tipo]) {
-                        status.textContent = '✅ Foto tirada!';
-                        status.classList.remove('text-red-500');
-                        status.classList.add('text-green-500');
-                    } else {
-                        status.textContent = '⚠️ Pendente';
-                        status.classList.remove('text-green-500');
-                        status.classList.add('text-red-500');
-                    }
-                }
-            });
-            
-            // Atualizar botão salvar
-            const btnSalvar = document.getElementById('btnSalvar');
-            if (btnSalvar) {
-                if (fotos.gaiolaDentro && fotos.gaiolaFora) {
-                    btnSalvar.disabled = false;
-                    btnSalvar.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                    btnSalvar.classList.add('bg-green-500', 'hover:bg-green-600');
-                    btnSalvar.textContent = '✅ Salvar Checklist';
-                } else {
-                    btnSalvar.disabled = true;
-                    btnSalvar.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    btnSalvar.classList.remove('bg-green-500', 'hover:bg-green-600');
-                    btnSalvar.textContent = '📸 Tire as fotos obrigatórias';
-                }
-            }
-        };
 
         async function salvarChecklist(event) {
             event.preventDefault();
@@ -557,6 +521,15 @@
             const longitude = document.getElementById('longitude').value || null;
             const localizacao = document.getElementById('localizacaoTexto').textContent || 'Não disponível';
 
+            // VERIFICAR TAMANHO DAS FOTOS
+            const tamanhoTotal = (fotos.gaiolaDentro.length + fotos.gaiolaFora.length) / 1024;
+            console.log('📊 Tamanho das fotos:', tamanhoTotal.toFixed(2), 'KB');
+            
+            if (tamanhoTotal > 900) {
+                alert('⚠️ As fotos estão muito grandes! Tente tirar fotos com menos qualidade.');
+                return;
+            }
+
             const checklist = {
                 motorista: motorista.nome,
                 placa: motorista.placa,
@@ -578,8 +551,6 @@
                 checklists.unshift(resultado);
                 alert('✅ Checklist salvo com sucesso!');
                 showDashboard();
-            } else {
-                alert('❌ Erro ao salvar! Verifique o console (F12)');
             }
         }
 
