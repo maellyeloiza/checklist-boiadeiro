@@ -17,21 +17,11 @@
         const SUPABASE_KEY = 'sb_publishable_Mm5CXywYX1pW7dbsqRyRFQ_gc-0jkcb';
 
         // ============================================
-        // MOTORISTAS LIBERADOS
-        // ============================================
-        const MOTORISTAS = {
-            'joao': { senha: '1234', nome: 'João Silva' },
-            'carlos': { senha: '1234', nome: 'Carlos Santos' },
-            'pedro': { senha: '1234', nome: 'Pedro Oliveira' },
-            'rafael': { senha: '1234', nome: 'Rafael Souza' },
-            'tiago': { senha: '1234', nome: 'Tiago Lima' }
-        };
-
-        // ============================================
         // DADOS GLOBAIS
         // ============================================
         let checklists = [];
         let motoristaAtual = null;
+        let fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
 
         // ============================================
         // FUNÇÕES DO SUPABASE
@@ -74,14 +64,10 @@
         // ============================================
         // FUNÇÕES DE AUTENTICAÇÃO
         // ============================================
-        function fazerLogin(nome, senha) {
-            const motorista = MOTORISTAS[nome.toLowerCase()];
-            if (motorista && motorista.senha === senha) {
-                motoristaAtual = { nome: motorista.nome, login: nome.toLowerCase() };
-                localStorage.setItem('@ChecklistBoiadeiro:motorista', JSON.stringify(motoristaAtual));
-                return true;
-            }
-            return false;
+        function fazerLogin(nome, placa) {
+            motoristaAtual = { nome: nome.trim(), placa: placa.trim().toUpperCase() };
+            localStorage.setItem('@ChecklistBoiadeiro:motorista', JSON.stringify(motoristaAtual));
+            return true;
         }
 
         function getMotoristaLogado() {
@@ -103,7 +89,7 @@
         }
 
         // ============================================
-        // FUNÇÃO PARA CAPTURAR GPS
+        // FUNÇÃO PARA CAPTURAR GPS AUTOMÁTICO
         // ============================================
         function capturarGPS() {
             return new Promise((resolve) => {
@@ -127,7 +113,47 @@
         }
 
         // ============================================
-        // TELA DE LOGIN
+        // FUNÇÃO PARA TIRAR FOTO
+        // ============================================
+        function tirarFoto(tipo) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const imagemBase64 = event.target.result;
+                        fotos[tipo] = imagemBase64;
+                        
+                        // Mostrar preview da foto
+                        const preview = document.getElementById(`preview_${tipo}`);
+                        if (preview) {
+                            preview.src = imagemBase64;
+                            preview.classList.remove('hidden');
+                            preview.classList.add('block');
+                        }
+                        
+                        // Mudar texto do botão
+                        const btn = document.getElementById(`btn_foto_${tipo}`);
+                        if (btn) {
+                            btn.textContent = '📸 Foto tirada!';
+                            btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                            btn.classList.add('bg-green-500', 'hover:bg-green-600');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            
+            input.click();
+        }
+
+        // ============================================
+        // TELA DE LOGIN (NOME + PLACA)
         // ============================================
         function showLogin() {
             const motorista = getMotoristaLogado();
@@ -153,20 +179,19 @@
                         </div>
                         <form onsubmit="handleLogin(event)" class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">👤 Motorista</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">👤 Nome do Motorista</label>
                                 <input type="text" id="nomeMotorista" placeholder="Digite seu nome" class="w-full px-4 py-3 border rounded-lg dark:bg-gray-700 dark:text-white" required>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🔒 Senha</label>
-                                <input type="password" id="senhaMotorista" placeholder="••••••••" class="w-full px-4 py-3 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Placa do Veículo</label>
+                                <input type="text" id="placaMotorista" placeholder="ABC-1234" class="w-full px-4 py-3 border rounded-lg dark:bg-gray-700 dark:text-white" required>
                             </div>
                             <button type="submit" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
                                 Entrar
                             </button>
                         </form>
                         <div class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-                            <p>👨‍🌾 Motoristas: joão, carlos, pedro, rafael, tiago</p>
-                            <p class="mt-1">🔑 Senha: 1234 para todos</p>
+                            <p>👨‍🌾 Digite seu nome e a placa do veículo</p>
                         </div>
                         <div class="mt-8 text-center text-xs text-gray-500">© 2026 Checklist Boiadeiro</div>
                     </div>
@@ -176,14 +201,16 @@
 
         function handleLogin(event) {
             event.preventDefault();
-            const nome = document.getElementById('nomeMotorista').value;
-            const senha = document.getElementById('senhaMotorista').value;
+            const nome = document.getElementById('nomeMotorista').value.trim();
+            const placa = document.getElementById('placaMotorista').value.trim().toUpperCase();
             
-            if (fazerLogin(nome, senha)) {
-                showDashboard();
-            } else {
-                alert('❌ Nome ou senha inválidos!\n\n📌 Use:\n- joão / 1234\n- carlos / 1234\n- pedro / 1234\n- rafael / 1234\n- tiago / 1234');
+            if (!nome || !placa) {
+                alert('❌ Preencha seu nome e a placa do veículo!');
+                return;
             }
+
+            fazerLogin(nome, placa);
+            showDashboard();
         }
 
         // ============================================
@@ -204,6 +231,7 @@
                         <div>
                             <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📋 Dashboard</h1>
                             <p class="text-gray-500 dark:text-gray-400">Bem-vindo, <strong>${motorista.nome}</strong>! 🐂</p>
+                            <p class="text-xs text-gray-400">Veículo: ${motorista.placa}</p>
                         </div>
                         <div class="flex flex-wrap gap-2 mt-3 md:mt-0">
                             <button onclick="showNovoChecklist()" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">📸 Novo Checklist</button>
@@ -256,6 +284,14 @@
             const motorista = getMotoristaLogado();
             if (!motorista) { showLogin(); return; }
 
+            // Capturar GPS automaticamente
+            setTimeout(async () => {
+                const posicao = await capturarGPS();
+                document.getElementById('latitude').value = posicao.latitude || '';
+                document.getElementById('longitude').value = posicao.longitude || '';
+                document.getElementById('localizacaoTexto').textContent = posicao.localizacao || 'Localização não disponível';
+            }, 500);
+
             document.getElementById('root').innerHTML = `
                 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
                     <div class="flex flex-wrap justify-between items-center mb-6">
@@ -274,12 +310,19 @@
                             <!-- Veículo -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Placa *</label>
-                                    <input type="text" id="placa" placeholder="ABC-1234" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Placa</label>
+                                    <input type="text" id="placa" value="${motorista.placa}" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white bg-gray-100 dark:bg-gray-600" readonly>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Modelo *</label>
-                                    <input type="text" id="modelo" placeholder="Scania R450" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Modelo do Veículo *</label>
+                                    <select id="modelo" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                                        <option value="">Selecione o modelo...</option>
+                                        <option value="Truck">Truck</option>
+                                        <option value="Julieta">Julieta</option>
+                                        <option value="Carreta 27">Carreta 27</option>
+                                        <option value="Carreta 36">Carreta 36</option>
+                                        <option value="Carreta 50">Carreta 50</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -290,13 +333,21 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gaiola - Dentro *</label>
-                                        <input type="text" id="fotoDentro" placeholder="Cole o link da foto" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
-                                        <p class="text-xs text-gray-500 mt-1">📱 No celular, tire a foto e cole o link</p>
+                                        <button type="button" id="btn_foto_gaiolaDentro" onclick="tirarFoto('gaiolaDentro')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
+                                            📷 Tirar Foto
+                                        </button>
+                                        <div class="mt-2">
+                                            <img id="preview_gaiolaDentro" class="hidden w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600">
+                                        </div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gaiola - Fora *</label>
-                                        <input type="text" id="fotoFora" placeholder="Cole o link da foto" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
-                                        <p class="text-xs text-gray-500 mt-1">📱 No celular, tire a foto e cole o link</p>
+                                        <button type="button" id="btn_foto_gaiolaFora" onclick="tirarFoto('gaiolaFora')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
+                                            📷 Tirar Foto
+                                        </button>
+                                        <div class="mt-2">
+                                            <img id="preview_gaiolaFora" class="hidden w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -323,7 +374,12 @@
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">📸 Foto da anomalia (opcional)</label>
-                                            <input type="text" id="fotoAnomalia" placeholder="Cole o link da foto" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                                            <button type="button" id="btn_foto_anomalia" onclick="tirarFoto('anomalia')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
+                                                📷 Tirar Foto
+                                            </button>
+                                            <div class="mt-2">
+                                                <img id="preview_anomalia" class="hidden w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -331,14 +387,9 @@
 
                             <!-- Localização -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <div class="flex justify-between items-center mb-2">
-                                    <h3 class="text-md font-semibold text-gray-800 dark:text-white">📍 Localização</h3>
-                                    <button type="button" onclick="capturarLocalizacao()" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
-                                        📍 Capturar GPS
-                                    </button>
-                                </div>
+                                <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-2">📍 Localização</h3>
                                 <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                                    <p id="localizacaoTexto" class="text-sm text-gray-600 dark:text-gray-300">Clique em "Capturar GPS" para obter sua localização</p>
+                                    <p id="localizacaoTexto" class="text-sm text-gray-600 dark:text-gray-300">📡 Capturando localização automática...</p>
                                     <input type="hidden" id="latitude" value="">
                                     <input type="hidden" id="longitude" value="">
                                 </div>
@@ -362,30 +413,38 @@
         }
 
         function limparFormulario() {
-            document.getElementById('placa').value = '';
             document.getElementById('modelo').value = '';
-            document.getElementById('fotoDentro').value = '';
-            document.getElementById('fotoFora').value = '';
-            document.getElementById('fotoAnomalia').value = '';
             document.getElementById('descricaoAnomalia').value = '';
-            document.getElementById('localizacaoTexto').textContent = 'Clique em "Capturar GPS" para obter sua localização';
+            document.getElementById('localizacaoTexto').textContent = '📡 Capturando localização automática...';
             document.getElementById('latitude').value = '';
             document.getElementById('longitude').value = '';
             document.querySelector('input[name="anomalia"][value="nao"]').checked = true;
             document.getElementById('campoAnomalia').classList.add('hidden');
-        }
-
-        async function capturarLocalizacao() {
-            const posicao = await capturarGPS();
-            document.getElementById('latitude').value = posicao.latitude || '';
-            document.getElementById('longitude').value = posicao.longitude || '';
-            document.getElementById('localizacaoTexto').textContent = posicao.localizacao || 'Localização não disponível';
             
-            if (!posicao.latitude) {
-                alert('⚠️ Não foi possível capturar a localização. Verifique se o GPS está ativo.');
-            } else {
-                alert('✅ Localização capturada com sucesso!');
-            }
+            // Limpar fotos
+            fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
+            ['gaiolaDentro', 'gaiolaFora', 'anomalia'].forEach(tipo => {
+                const preview = document.getElementById(`preview_${tipo}`);
+                if (preview) {
+                    preview.src = '';
+                    preview.classList.add('hidden');
+                    preview.classList.remove('block');
+                }
+                const btn = document.getElementById(`btn_foto_${tipo}`);
+                if (btn) {
+                    btn.textContent = '📷 Tirar Foto';
+                    btn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                }
+            });
+            
+            // Recapturar GPS
+            setTimeout(async () => {
+                const posicao = await capturarGPS();
+                document.getElementById('latitude').value = posicao.latitude || '';
+                document.getElementById('longitude').value = posicao.longitude || '';
+                document.getElementById('localizacaoTexto').textContent = posicao.localizacao || 'Localização não disponível';
+            }, 500);
         }
 
         async function salvarChecklist(event) {
@@ -394,29 +453,34 @@
             const motorista = getMotoristaLogado();
             if (!motorista) { showLogin(); return; }
 
-            const placa = document.getElementById('placa').value;
             const modelo = document.getElementById('modelo').value;
-            const fotoDentro = document.getElementById('fotoDentro').value || 'Sem foto';
-            const fotoFora = document.getElementById('fotoFora').value || 'Sem foto';
             const temAnomalia = document.querySelector('input[name="anomalia"]:checked').value === 'sim';
             const descricaoAnomalia = document.getElementById('descricaoAnomalia').value || '';
-            const fotoAnomalia = document.getElementById('fotoAnomalia').value || '';
             const latitude = document.getElementById('latitude').value || null;
             const longitude = document.getElementById('longitude').value || null;
             const localizacao = document.getElementById('localizacaoTexto').textContent || 'Não disponível';
 
-            if (!placa || !modelo) {
-                alert('❌ Preencha a placa e o modelo do veículo!');
+            // Verificar se as fotos obrigatórias foram tiradas
+            if (!fotos.gaiolaDentro) {
+                alert('❌ Tire a foto da gaiola (dentro)!');
+                return;
+            }
+            if (!fotos.gaiolaFora) {
+                alert('❌ Tire a foto da gaiola (fora)!');
+                return;
+            }
+            if (!modelo) {
+                alert('❌ Selecione o modelo do veículo!');
                 return;
             }
 
             const checklist = {
                 motorista: motorista.nome,
-                placa: placa,
+                placa: motorista.placa,
                 modelo: modelo,
-                foto_gaiola_dentro: fotoDentro,
-                foto_gaiola_fora: fotoFora,
-                foto_anomalia: fotoAnomalia || null,
+                foto_gaiola_dentro: fotos.gaiolaDentro || 'Sem foto',
+                foto_gaiola_fora: fotos.gaiolaFora || 'Sem foto',
+                foto_anomalia: fotos.anomalia || null,
                 tem_anomalia: temAnomalia,
                 descricao_anomalia: descricaoAnomalia || null,
                 latitude: latitude,
