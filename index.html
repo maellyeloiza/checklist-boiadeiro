@@ -43,6 +43,7 @@
 
         async function salvarChecklistBD(checklist) {
             try {
+                console.log('📝 Enviando checklist...');
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists`, {
                     method: 'POST',
                     headers: {
@@ -53,10 +54,18 @@
                     },
                     body: JSON.stringify(checklist)
                 });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Erro:', errorText);
+                    throw new Error(`Erro ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log('✅ Checklist salvo!');
                 return data[0];
             } catch (error) {
-                console.error('❌ Erro ao salvar checklist:', error);
+                console.error('❌ Erro ao salvar:', error);
                 return null;
             }
         }
@@ -89,7 +98,7 @@
         }
 
         // ============================================
-        // FUNÇÃO PARA CAPTURAR GPS AUTOMÁTICO
+        // FUNÇÃO PARA CAPTURAR GPS
         // ============================================
         function capturarGPS() {
             return new Promise((resolve) => {
@@ -113,7 +122,7 @@
         }
 
         // ============================================
-        // FUNÇÃO PARA TIRAR FOTO (COMPRIMIDA)
+        // FUNÇÃO PARA TIRAR FOTO (QUALIDADE BAIXA)
         // ============================================
         function tirarFoto(tipo) {
             const input = document.createElement('input');
@@ -126,12 +135,12 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
-                        // Comprimir a imagem
                         const img = new Image();
                         img.onload = function() {
                             const canvas = document.createElement('canvas');
-                            const maxWidth = 800;
-                            const maxHeight = 600;
+                            // REDUZIR PARA 400x300 (BEM PEQUENO)
+                            const maxWidth = 400;
+                            const maxHeight = 300;
                             let width = img.width;
                             let height = img.height;
                             
@@ -152,8 +161,8 @@
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, width, height);
                             
-                            // Salvar como JPEG com qualidade 70%
-                            const imagemBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                            // QUALIDADE 30% (BEM BAIXA PARA CABER)
+                            const imagemBase64 = canvas.toDataURL('image/jpeg', 0.3);
                             fotos[tipo] = imagemBase64;
                             
                             // Mostrar preview
@@ -161,7 +170,6 @@
                             if (preview) {
                                 preview.src = imagemBase64;
                                 preview.classList.remove('hidden');
-                                preview.classList.add('block');
                             }
                             
                             const btn = document.getElementById(`btn_foto_${tipo}`);
@@ -170,18 +178,40 @@
                                 btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
                                 btn.classList.add('bg-green-500', 'hover:bg-green-600');
                             }
+                            
+                            // Verificar se todas as fotos foram tiradas
+                            verificarFotos();
                         };
                         img.src = event.target.result;
                     };
                     reader.readAsDataURL(file);
                 }
             };
-            
             input.click();
         }
 
         // ============================================
-        // TELA DE LOGIN (NOME + PLACA)
+        // VERIFICAR SE TODAS AS FOTOS FORAM TIRADAS
+        // ============================================
+        function verificarFotos() {
+            const btnSalvar = document.getElementById('btnSalvar');
+            if (btnSalvar) {
+                if (fotos.gaiolaDentro && fotos.gaiolaFora) {
+                    btnSalvar.disabled = false;
+                    btnSalvar.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    btnSalvar.classList.add('bg-green-500', 'hover:bg-green-600');
+                    btnSalvar.textContent = '✅ Salvar Checklist';
+                } else {
+                    btnSalvar.disabled = true;
+                    btnSalvar.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    btnSalvar.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    btnSalvar.textContent = '📸 Tire as fotos obrigatórias';
+                }
+            }
+        }
+
+        // ============================================
+        // TELA DE LOGIN
         // ============================================
         function showLogin() {
             const motorista = getMotoristaLogado();
@@ -289,24 +319,21 @@
                         ${meusChecklists.length === 0 ? `
                             <p class="text-center text-gray-500 dark:text-gray-400 py-4">Nenhum checklist encontrado.</p>
                         ` : meusChecklists.slice(0, 5).map(c => `
-                            <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                            <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2">
                                 <div>
                                     <p class="font-medium text-gray-800 dark:text-white">🚛 ${c.placa} - ${c.modelo}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(c.criado_em).toLocaleDateString('pt-BR')} • ${c.localizacao || 'Sem local'}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(c.criado_em).toLocaleDateString('pt-BR')}</p>
                                 </div>
-                                <div>
-                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
-                                </div>
+                                <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
                             </div>
                         `).join('')}
-                        ${meusChecklists.length > 5 ? `<p class="text-center text-sm text-gray-500 mt-2">+ ${meusChecklists.length - 5} mais...</p>` : ''}
                     </div>
                 </div>
             `;
         }
 
         // ============================================
-        // TELA DE NOVO CHECKLIST
+        // TELA DE NOVO CHECKLIST (FOTOS OBRIGATÓRIAS)
         // ============================================
         function showNovoChecklist() {
             const motorista = getMotoristaLogado();
@@ -315,7 +342,7 @@
             // Resetar fotos
             fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
 
-            // Capturar GPS automaticamente
+            // Capturar GPS
             setTimeout(async () => {
                 const posicao = await capturarGPS();
                 document.getElementById('latitude').value = posicao.latitude || '';
@@ -337,7 +364,7 @@
                     </div>
 
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
-                        <form id="formChecklist" onsubmit="salvarChecklist(event)" class="space-y-4">
+                        <form onsubmit="salvarChecklist(event)" class="space-y-4">
                             <!-- Veículo -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
@@ -345,9 +372,9 @@
                                     <input type="text" id="placa" value="${motorista.placa}" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white bg-gray-100 dark:bg-gray-600" readonly>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Modelo do Veículo *</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Modelo *</label>
                                     <select id="modelo" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" required>
-                                        <option value="">Selecione o modelo...</option>
+                                        <option value="">Selecione...</option>
                                         <option value="Truck">Truck</option>
                                         <option value="Julieta">Julieta</option>
                                         <option value="Carreta 27">Carreta 27</option>
@@ -357,9 +384,10 @@
                                 </div>
                             </div>
 
-                            <!-- Fotos -->
+                            <!-- Fotos OBRIGATÓRIAS -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-3">📸 Fotos Obrigatórias</h3>
+                                <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-3">📸 Fotos Obrigatórias *</h3>
+                                <p class="text-sm text-red-500 mb-3">⚠️ As duas fotos são obrigatórias para salvar!</p>
                                 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
@@ -367,28 +395,24 @@
                                         <button type="button" id="btn_foto_gaiolaDentro" onclick="tirarFoto('gaiolaDentro')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
                                             📷 Tirar Foto
                                         </button>
-                                        <div class="mt-2">
-                                            <img id="preview_gaiolaDentro" class="hidden w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600">
-                                        </div>
+                                        <img id="preview_gaiolaDentro" class="hidden w-full h-24 object-cover rounded-lg mt-2 border">
+                                        <p id="status_gaiolaDentro" class="text-xs text-red-500 mt-1">⚠️ Pendente</p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gaiola - Fora *</label>
                                         <button type="button" id="btn_foto_gaiolaFora" onclick="tirarFoto('gaiolaFora')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
                                             📷 Tirar Foto
                                         </button>
-                                        <div class="mt-2">
-                                            <img id="preview_gaiolaFora" class="hidden w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600">
-                                        </div>
+                                        <img id="preview_gaiolaFora" class="hidden w-full h-24 object-cover rounded-lg mt-2 border">
+                                        <p id="status_gaiolaFora" class="text-xs text-red-500 mt-1">⚠️ Pendente</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Anomalias -->
+                            <!-- Anomalia -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-3">⚠️ Anomalias no Embarque</h3>
-                                
-                                <div class="flex items-center gap-4 mb-3">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Houve anomalia?</label>
+                                <div class="flex items-center gap-4">
+                                    <label class="text-sm font-medium">Houve anomalia?</label>
                                     <label class="flex items-center gap-2">
                                         <input type="radio" name="anomalia" value="sim" onchange="mostrarAnomalia(true)"> Sim
                                     </label>
@@ -396,23 +420,12 @@
                                         <input type="radio" name="anomalia" value="nao" checked onchange="mostrarAnomalia(false)"> Não
                                     </label>
                                 </div>
-
-                                <div id="campoAnomalia" class="hidden">
-                                    <div class="grid grid-cols-1 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">📝 Descreva a anomalia</label>
-                                            <textarea id="descricaoAnomalia" rows="3" placeholder="Descreva o que aconteceu..." class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">📸 Foto da anomalia (opcional)</label>
-                                            <button type="button" id="btn_foto_anomalia" onclick="tirarFoto('anomalia')" class="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
-                                                📷 Tirar Foto
-                                            </button>
-                                            <div class="mt-2">
-                                                <img id="preview_anomalia" class="hidden w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600">
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div id="campoAnomalia" class="hidden mt-3">
+                                    <textarea id="descricaoAnomalia" rows="2" placeholder="Descreva a anomalia..." class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
+                                    <button type="button" id="btn_foto_anomalia" onclick="tirarFoto('anomalia')" class="mt-2 w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition">
+                                        📷 Foto da Anomalia
+                                    </button>
+                                    <img id="preview_anomalia" class="hidden w-full h-24 object-cover rounded-lg mt-2 border">
                                 </div>
                             </div>
 
@@ -420,20 +433,25 @@
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                                 <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-2">📍 Localização</h3>
                                 <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                                    <p id="localizacaoTexto" class="text-sm text-gray-600 dark:text-gray-300">📡 Capturando localização automática...</p>
+                                    <p id="localizacaoTexto" class="text-sm text-gray-600 dark:text-gray-300">📡 Capturando localização...</p>
                                     <input type="hidden" id="latitude" value="">
                                     <input type="hidden" id="longitude" value="">
                                 </div>
                             </div>
 
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4 flex gap-3">
-                                <button type="submit" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition">✅ Salvar Checklist</button>
+                                <button type="submit" id="btnSalvar" disabled class="flex-1 bg-gray-400 cursor-not-allowed text-white font-bold py-3 rounded-lg transition">
+                                    📸 Tire as fotos obrigatórias
+                                </button>
                                 <button type="reset" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-white font-bold py-3 rounded-lg transition" onclick="limparFormulario()">🔄 Limpar</button>
                             </div>
                         </form>
                     </div>
                 </div>
             `;
+
+            // Atualizar status das fotos
+            verificarFotos();
         }
 
         // ============================================
@@ -446,9 +464,6 @@
         function limparFormulario() {
             document.getElementById('modelo').value = '';
             document.getElementById('descricaoAnomalia').value = '';
-            document.getElementById('localizacaoTexto').textContent = '📡 Capturando localização automática...';
-            document.getElementById('latitude').value = '';
-            document.getElementById('longitude').value = '';
             document.querySelector('input[name="anomalia"][value="nao"]').checked = true;
             document.getElementById('campoAnomalia').classList.add('hidden');
             
@@ -458,7 +473,6 @@
                 if (preview) {
                     preview.src = '';
                     preview.classList.add('hidden');
-                    preview.classList.remove('block');
                 }
                 const btn = document.getElementById(`btn_foto_${tipo}`);
                 if (btn) {
@@ -466,15 +480,54 @@
                     btn.classList.remove('bg-green-500', 'hover:bg-green-600');
                     btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
                 }
+                const status = document.getElementById(`status_${tipo}`);
+                if (status) {
+                    status.textContent = '⚠️ Pendente';
+                    status.classList.remove('text-green-500');
+                    status.classList.add('text-red-500');
+                }
             });
             
-            setTimeout(async () => {
-                const posicao = await capturarGPS();
-                document.getElementById('latitude').value = posicao.latitude || '';
-                document.getElementById('longitude').value = posicao.longitude || '';
-                document.getElementById('localizacaoTexto').textContent = posicao.localizacao || 'Localização não disponível';
-            }, 500);
+            verificarFotos();
         }
+
+        // ============================================
+        // SOBRESCREVER verificarFotos para atualizar status
+        // ============================================
+        const verificarFotosOriginal = verificarFotos;
+        verificarFotos = function() {
+            // Atualizar status dos textos
+            ['gaiolaDentro', 'gaiolaFora'].forEach(tipo => {
+                const status = document.getElementById(`status_${tipo}`);
+                if (status) {
+                    if (fotos[tipo]) {
+                        status.textContent = '✅ Foto tirada!';
+                        status.classList.remove('text-red-500');
+                        status.classList.add('text-green-500');
+                    } else {
+                        status.textContent = '⚠️ Pendente';
+                        status.classList.remove('text-green-500');
+                        status.classList.add('text-red-500');
+                    }
+                }
+            });
+            
+            // Atualizar botão salvar
+            const btnSalvar = document.getElementById('btnSalvar');
+            if (btnSalvar) {
+                if (fotos.gaiolaDentro && fotos.gaiolaFora) {
+                    btnSalvar.disabled = false;
+                    btnSalvar.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    btnSalvar.classList.add('bg-green-500', 'hover:bg-green-600');
+                    btnSalvar.textContent = '✅ Salvar Checklist';
+                } else {
+                    btnSalvar.disabled = true;
+                    btnSalvar.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    btnSalvar.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    btnSalvar.textContent = '📸 Tire as fotos obrigatórias';
+                }
+            }
+        };
 
         async function salvarChecklist(event) {
             event.preventDefault();
@@ -482,33 +535,34 @@
             const motorista = getMotoristaLogado();
             if (!motorista) { showLogin(); return; }
 
+            // VERIFICAR FOTOS OBRIGATÓRIAS
+            if (!fotos.gaiolaDentro) {
+                alert('❌ Tire a foto da gaiola (DENTRO)!');
+                return;
+            }
+            if (!fotos.gaiolaFora) {
+                alert('❌ Tire a foto da gaiola (FORA)!');
+                return;
+            }
+
             const modelo = document.getElementById('modelo').value;
+            if (!modelo) {
+                alert('❌ Selecione o modelo do veículo!');
+                return;
+            }
+
             const temAnomalia = document.querySelector('input[name="anomalia"]:checked').value === 'sim';
             const descricaoAnomalia = document.getElementById('descricaoAnomalia').value || '';
             const latitude = document.getElementById('latitude').value || null;
             const longitude = document.getElementById('longitude').value || null;
             const localizacao = document.getElementById('localizacaoTexto').textContent || 'Não disponível';
 
-            if (!modelo) {
-                alert('❌ Selecione o modelo do veículo!');
-                return;
-            }
-
-            if (!fotos.gaiolaDentro) {
-                alert('❌ Tire a foto da gaiola (dentro)!');
-                return;
-            }
-            if (!fotos.gaiolaFora) {
-                alert('❌ Tire a foto da gaiola (fora)!');
-                return;
-            }
-
             const checklist = {
                 motorista: motorista.nome,
                 placa: motorista.placa,
                 modelo: modelo,
-                foto_gaiola_dentro: fotos.gaiolaDentro || 'Sem foto',
-                foto_gaiola_fora: fotos.gaiolaFora || 'Sem foto',
+                foto_gaiola_dentro: fotos.gaiolaDentro,
+                foto_gaiola_fora: fotos.gaiolaFora,
                 foto_anomalia: fotos.anomalia || null,
                 tem_anomalia: temAnomalia,
                 descricao_anomalia: descricaoAnomalia || null,
@@ -525,7 +579,7 @@
                 alert('✅ Checklist salvo com sucesso!');
                 showDashboard();
             } else {
-                alert('❌ Erro ao salvar o checklist!');
+                alert('❌ Erro ao salvar! Verifique o console (F12)');
             }
         }
 
@@ -597,7 +651,7 @@
         }
 
         // ============================================
-        // INICIAR (CARREGAR DADOS DO BANCO)
+        // INICIAR
         // ============================================
         async function iniciarApp() {
             await carregarDados();
