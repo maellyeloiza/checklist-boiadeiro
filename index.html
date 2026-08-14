@@ -30,10 +30,7 @@
                     proximoId = Math.max(...checklists.map(c => c.id)) + 1;
                 }
             } else {
-                checklists = [
-                    { id: 1, motorista: 'João Silva', placa: 'ABC-1234', modelo: 'Truck', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: false, descricao_anomalia: '', latitude: '-23.550520', longitude: '-46.633308', localizacao: 'São Paulo - SP', status: 'Concluído', criado_em: new Date().toISOString() },
-                    { id: 2, motorista: 'Carlos Santos', placa: 'XYZ-5678', modelo: 'Carreta 36', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: true, descricao_anomalia: 'Pneu dianteiro danificado', latitude: '-22.906847', longitude: '-47.061200', localizacao: 'Campinas - SP', status: 'Concluído', criado_em: new Date().toISOString() }
-                ];
+                checklists = [];
                 salvarDados();
             }
             if (checklists.length > 0) {
@@ -55,6 +52,70 @@
         }
 
         // ============================================
+        // SALVAR E RECUPERAR DADOS DO FORMULÁRIO
+        // ============================================
+        function salvarFormulario() {
+            const dados = {
+                modelo: document.getElementById('modelo')?.value || '',
+                descricaoAnomalia: document.getElementById('descricaoAnomalia')?.value || '',
+                anomalia: document.querySelector('input[name="anomalia"]:checked')?.value || 'nao',
+                fotos: fotos
+            };
+            localStorage.setItem('@ChecklistBoiadeiro:formulario', JSON.stringify(dados));
+        }
+
+        function recuperarFormulario() {
+            const saved = localStorage.getItem('@ChecklistBoiadeiro:formulario');
+            if (saved) {
+                try {
+                    const dados = JSON.parse(saved);
+                    if (document.getElementById('modelo')) {
+                        document.getElementById('modelo').value = dados.modelo || '';
+                    }
+                    if (document.getElementById('descricaoAnomalia')) {
+                        document.getElementById('descricaoAnomalia').value = dados.descricaoAnomalia || '';
+                    }
+                    if (dados.anomalia) {
+                        const radio = document.querySelector(`input[name="anomalia"][value="${dados.anomalia}"]`);
+                        if (radio) radio.checked = true;
+                        if (dados.anomalia === 'sim') {
+                            document.getElementById('campoAnomalia')?.classList.remove('hidden');
+                        } else {
+                            document.getElementById('campoAnomalia')?.classList.add('hidden');
+                        }
+                    }
+                    if (dados.fotos) {
+                        fotos = dados.fotos;
+                        ['gaiolaDentro', 'gaiolaFora', 'anomalia'].forEach(tipo => {
+                            if (fotos[tipo]) {
+                                const preview = document.getElementById(`preview_${tipo}`);
+                                if (preview) {
+                                    preview.src = fotos[tipo];
+                                    preview.classList.remove('hidden');
+                                }
+                                const btn = document.getElementById(`btn_foto_${tipo}`);
+                                if (btn) {
+                                    btn.textContent = '✅ Foto tirada!';
+                                    btn.className = 'w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition';
+                                }
+                                const status = document.getElementById(`status_${tipo}`);
+                                if (status) {
+                                    status.textContent = '✅ Foto tirada!';
+                                    status.className = 'text-xs text-green-500 mt-1';
+                                }
+                            }
+                        });
+                        verificarFotos();
+                    }
+                    // Limpar formulário salvo após recuperar
+                    localStorage.removeItem('@ChecklistBoiadeiro:formulario');
+                } catch (e) {
+                    console.error('Erro ao recuperar formulário:', e);
+                }
+            }
+        }
+
+        // ============================================
         // FUNÇÃO PARA VER FOTO
         // ============================================
         function verFoto(base64, titulo) {
@@ -69,69 +130,17 @@
                 <head>
                     <title>${titulo}</title>
                     <style>
-                        body {
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            min-height: 100vh;
-                            margin: 0;
-                            background: #1a1a2e;
-                            font-family: Arial, sans-serif;
-                        }
-                        .container {
-                            text-align: center;
-                            background: white;
-                            padding: 30px;
-                            border-radius: 16px;
-                            box-shadow: 0 8px 40px rgba(0,0,0,0.5);
-                            max-width: 90%;
-                        }
-                        h2 {
-                            color: #2d3748;
-                            margin-top: 0;
-                            font-size: 24px;
-                        }
-                        img {
-                            max-width: 100%;
-                            max-height: 75vh;
-                            border-radius: 8px;
-                            border: 3px solid #e2e8f0;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                        }
-                        .info {
-                            margin-top: 15px;
-                            color: #718096;
-                            font-size: 14px;
-                        }
-                        .buttons {
-                            margin-top: 15px;
-                            display: flex;
-                            gap: 10px;
-                            justify-content: center;
-                            flex-wrap: wrap;
-                        }
-                        button {
-                            padding: 10px 30px;
-                            border: none;
-                            border-radius: 8px;
-                            font-size: 16px;
-                            cursor: pointer;
-                            transition: all 0.3s;
-                        }
-                        .btn-fechar {
-                            background: #e53e3e;
-                            color: white;
-                        }
-                        .btn-fechar:hover {
-                            background: #c53030;
-                        }
-                        .btn-download {
-                            background: #48bb78;
-                            color: white;
-                        }
-                        .btn-download:hover {
-                            background: #38a169;
-                        }
+                        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #1a1a2e; font-family: Arial, sans-serif; }
+                        .container { text-align: center; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.5); max-width: 90%; }
+                        h2 { color: #2d3748; margin-top: 0; font-size: 24px; }
+                        img { max-width: 100%; max-height: 75vh; border-radius: 8px; border: 3px solid #e2e8f0; }
+                        .info { margin-top: 15px; color: #718096; font-size: 14px; }
+                        .buttons { margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+                        button { padding: 10px 30px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: all 0.3s; }
+                        .btn-fechar { background: #e53e3e; color: white; }
+                        .btn-fechar:hover { background: #c53030; }
+                        .btn-download { background: #48bb78; color: white; }
+                        .btn-download:hover { background: #38a169; }
                     </style>
                 </head>
                 <body>
@@ -159,9 +168,12 @@
         }
 
         // ============================================
-        // FUNÇÃO PARA TIRAR FOTO (ALTA QUALIDADE)
+        // FUNÇÃO PARA TIRAR FOTO (SALVANDO FORMULÁRIO)
         // ============================================
         function tirarFoto(tipo) {
+            // Salvar dados do formulário antes de abrir a câmera
+            salvarFormulario();
+            
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
@@ -176,7 +188,6 @@
                     const img = new Image();
                     img.onload = function() {
                         const canvas = document.createElement('canvas');
-                        // MELHORADO: 800x600 pixels (antes era 300x225)
                         const maxWidth = 800;
                         const maxHeight = 600;
                         let width = img.width;
@@ -199,7 +210,6 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // MELHORADO: Qualidade 80% (antes era 20%)
                         const imagemBase64 = canvas.toDataURL('image/jpeg', 0.8);
                         fotos[tipo] = imagemBase64;
                         
@@ -535,6 +545,9 @@
                     </div>
                 </div>
             `;
+
+            // Recuperar dados do formulário se houver
+            setTimeout(recuperarFormulario, 100);
         }
 
         // ============================================
@@ -569,6 +582,8 @@
                 }
             });
             verificarFotos();
+            // Limpar formulário salvo
+            localStorage.removeItem('@ChecklistBoiadeiro:formulario');
         }
 
         async function salvarChecklist(event) {
@@ -616,6 +631,8 @@
 
             const resultado = salvarChecklistLocal(checklist);
             if (resultado) {
+                // Limpar formulário salvo
+                localStorage.removeItem('@ChecklistBoiadeiro:formulario');
                 alert('✅ Checklist salvo com sucesso!');
                 showDashboard();
             }
