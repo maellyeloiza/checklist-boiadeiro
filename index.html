@@ -26,16 +26,13 @@
             if (saved) {
                 checklists = JSON.parse(saved);
                 console.log('✅ Dados carregados:', checklists.length);
-                // Atualizar próximo ID
                 if (checklists.length > 0) {
                     proximoId = Math.max(...checklists.map(c => c.id)) + 1;
                 }
             } else {
-                // Dados de exemplo
                 checklists = [
-                    { id: 1, motorista: 'João Silva', placa: 'ABC-1234', modelo: 'Truck', foto_gaiola_dentro: '📸 Foto tirada', foto_gaiola_fora: '📸 Foto tirada', tem_anomalia: false, descricao_anomalia: '', latitude: '-23.550520', longitude: '-46.633308', localizacao: 'São Paulo - SP', status: 'Concluído', criado_em: new Date().toISOString() },
-                    { id: 2, motorista: 'Carlos Santos', placa: 'XYZ-5678', modelo: 'Carreta 36', foto_gaiola_dentro: '📸 Foto tirada', foto_gaiola_fora: '📸 Foto tirada', tem_anomalia: true, descricao_anomalia: 'Pneu dianteiro danificado', latitude: '-22.906847', longitude: '-47.061200', localizacao: 'Campinas - SP', status: 'Concluído', criado_em: new Date().toISOString() },
-                    { id: 3, motorista: 'Pedro Oliveira', placa: 'DEF-9012', modelo: 'Julieta', foto_gaiola_dentro: '📸 Foto tirada', foto_gaiola_fora: '📸 Foto tirada', tem_anomalia: false, descricao_anomalia: '', latitude: '-21.175000', longitude: '-47.810000', localizacao: 'Ribeirão Preto - SP', status: 'Pendente', criado_em: new Date().toISOString() }
+                    { id: 1, motorista: 'João Silva', placa: 'ABC-1234', modelo: 'Truck', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: false, descricao_anomalia: '', latitude: '-23.550520', longitude: '-46.633308', localizacao: 'São Paulo - SP', status: 'Concluído', criado_em: new Date().toISOString() },
+                    { id: 2, motorista: 'Carlos Santos', placa: 'XYZ-5678', modelo: 'Carreta 36', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: true, descricao_anomalia: 'Pneu dianteiro danificado', latitude: '-22.906847', longitude: '-47.061200', localizacao: 'Campinas - SP', status: 'Concluído', criado_em: new Date().toISOString() }
                 ];
                 salvarDados();
                 console.log('📝 Dados de exemplo criados');
@@ -57,6 +54,82 @@
             salvarDados();
             console.log('✅ Checklist salvo!');
             return checklist;
+        }
+
+        // ============================================
+        // FUNÇÃO PARA VISUALIZAR FOTO
+        // ============================================
+        function verFoto(base64, titulo) {
+            if (!base64 || base64 === '' || base64 === '📸 Foto tirada') {
+                alert('⚠️ Nenhuma foto disponível para esta imagem!');
+                return;
+            }
+            
+            // Abrir em nova janela
+            const win = window.open('', '_blank');
+            win.document.write(`
+                <html>
+                <head>
+                    <title>${titulo}</title>
+                    <style>
+                        body {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            margin: 0;
+                            background: #f0f0f0;
+                            font-family: Arial, sans-serif;
+                        }
+                        .container {
+                            text-align: center;
+                            background: white;
+                            padding: 20px;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                            max-width: 90%;
+                        }
+                        h2 {
+                            color: #2d3748;
+                            margin-top: 0;
+                        }
+                        img {
+                            max-width: 100%;
+                            max-height: 70vh;
+                            border-radius: 8px;
+                            border: 2px solid #e2e8f0;
+                        }
+                        .info {
+                            margin-top: 15px;
+                            color: #718096;
+                            font-size: 14px;
+                        }
+                        button {
+                            margin-top: 15px;
+                            padding: 10px 30px;
+                            background: #4CAF50;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            cursor: pointer;
+                        }
+                        button:hover {
+                            background: #45a049;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>📸 ${titulo}</h2>
+                        <img src="${base64}" alt="${titulo}" />
+                        <div class="info">Clique com o botão direito para salvar a imagem</div>
+                        <button onclick="window.close()">✕ Fechar</button>
+                    </div>
+                </body>
+                </html>
+            `);
+            win.document.close();
         }
 
         // ============================================
@@ -238,7 +311,7 @@
                         </form>
                         <div class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
                             <p>👨‍🌾 Digite seu nome e a placa do veículo</p>
-                            <p class="mt-1 text-green-600">💾 Dados salvos localmente (funciona sem internet)</p>
+                            <p class="mt-1 text-green-600">💾 Dados salvos localmente</p>
                         </div>
                         <div class="mt-8 text-center text-xs text-gray-500">© 2026 Checklist Boiadeiro</div>
                     </div>
@@ -500,8 +573,8 @@
                 motorista: motorista.nome,
                 placa: motorista.placa,
                 modelo: modelo,
-                foto_gaiola_dentro: fotos.gaiolaDentro || '📸 Foto tirada',
-                foto_gaiola_fora: fotos.gaiolaFora || '📸 Foto tirada',
+                foto_gaiola_dentro: fotos.gaiolaDentro || '',
+                foto_gaiola_fora: fotos.gaiolaFora || '',
                 foto_anomalia: fotos.anomalia || null,
                 tem_anomalia: temAnomalia,
                 descricao_anomalia: descricaoAnomalia || null,
@@ -512,16 +585,15 @@
                 criado_em: new Date().toISOString()
             };
 
-            // Salvar no LocalStorage
             const resultado = salvarChecklistLocal(checklist);
             if (resultado) {
-                alert('✅ Checklist salvo com sucesso! (Dados salvos localmente)');
+                alert('✅ Checklist salvo com sucesso!');
                 showDashboard();
             }
         }
 
         // ============================================
-        // TELA DE HISTÓRICO
+        // TELA DE HISTÓRICO (COM BOTÃO VER FOTO)
         // ============================================
         function showHistorico() {
             const motorista = getMotoristaLogado();
@@ -542,38 +614,46 @@
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto">
                         ${meusChecklists.length === 0 ? `
                             <p class="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum checklist encontrado.</p>
                         ` : `
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-sm">
-                                    <thead class="bg-gray-50 dark:bg-gray-700">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left">Data</th>
-                                            <th class="px-4 py-3 text-left">Placa</th>
-                                            <th class="px-4 py-3 text-left">Modelo</th>
-                                            <th class="px-4 py-3 text-left">Anomalia</th>
-                                            <th class="px-4 py-3 text-left">Status</th>
-                                            <th class="px-4 py-3 text-left">Localização</th>
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">Data</th>
+                                        <th class="px-4 py-3 text-left">Placa</th>
+                                        <th class="px-4 py-3 text-left">Modelo</th>
+                                        <th class="px-4 py-3 text-left">Anomalia</th>
+                                        <th class="px-4 py-3 text-left">Status</th>
+                                        <th class="px-4 py-3 text-left">Fotos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${meusChecklists.map(c => `
+                                        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                            <td class="px-4 py-3">${new Date(c.criado_em).toLocaleDateString('pt-BR')}</td>
+                                            <td class="px-4 py-3 font-medium">${c.placa}</td>
+                                            <td class="px-4 py-3">${c.modelo}</td>
+                                            <td class="px-4 py-3">${c.tem_anomalia ? '⚠️ Sim' : '✅ Não'}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <button onclick="verFoto('${c.foto_gaiola_dentro || ''}', 'Gaiola Dentro - ${c.placa}')" class="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 mr-1">
+                                                    📷 Dentro
+                                                </button>
+                                                <button onclick="verFoto('${c.foto_gaiola_fora || ''}', 'Gaiola Fora - ${c.placa}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">
+                                                    📷 Fora
+                                                </button>
+                                                ${c.foto_anomalia ? `<button onclick="verFoto('${c.foto_anomalia}', 'Anomalia - ${c.placa}')" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 ml-1">
+                                                    ⚠️ Anomalia
+                                                </button>` : ''}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${meusChecklists.map(c => `
-                                            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                                <td class="px-4 py-3">${new Date(c.criado_em).toLocaleDateString('pt-BR')}</td>
-                                                <td class="px-4 py-3 font-medium">${c.placa}</td>
-                                                <td class="px-4 py-3">${c.modelo}</td>
-                                                <td class="px-4 py-3">${c.tem_anomalia ? '⚠️ Sim' : '✅ Não'}</td>
-                                                <td class="px-4 py-3">
-                                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
-                                                </td>
-                                                <td class="px-4 py-3 text-xs truncate max-w-[100px]">${c.localizacao || '-'}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
+                                    `).join('')}
+                                </tbody>
+                            </table>
                         `}
                     </div>
                 </div>
