@@ -11,13 +11,13 @@
 
     <script>
         // ============================================
-        // CONFIGURAÇÃO DO SUPABASE
+        // CONFIGURAÇÃO DO SUPABASE (VERIFICADA)
         // ============================================
         const SUPABASE_URL = 'https://yIaxdmzkmlabrcdtuzbn.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_YCGb5Bk3btIBPPuQ9cDYTA_7kke5XoL';
 
         console.log('🚀 App iniciando...');
-        console.log('📡 Conectando ao Supabase:', SUPABASE_URL);
+        console.log('📡 Supabase URL:', SUPABASE_URL);
 
         // ============================================
         // DADOS GLOBAIS
@@ -27,7 +27,33 @@
         let fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
 
         // ============================================
-        // FUNÇÕES DO SUPABASE (COM CORS)
+        // TESTAR CONEXÃO COM O SUPABASE
+        // ============================================
+        async function testarConexao() {
+            try {
+                console.log('🔍 Testando conexão...');
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists?limit=1`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                console.log('📡 Status do teste:', response.status);
+                if (response.ok) {
+                    console.log('✅ Conexão OK!');
+                    return true;
+                } else {
+                    console.error('❌ Conexão falhou:', response.status);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ Erro no teste:', error.message);
+                return false;
+            }
+        }
+
+        // ============================================
+        // FUNÇÕES DO SUPABASE
         // ============================================
         async function carregarDados() {
             console.log('📥 Carregando dados...');
@@ -35,34 +61,30 @@
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists?select=*&order=id.desc`, {
                     headers: {
                         'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`,
-                        'Content-Type': 'application/json'
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
                     }
                 });
                 
-                console.log('📡 Status da resposta:', response.status);
+                console.log('📡 Status:', response.status);
                 
                 if (!response.ok) {
                     throw new Error(`Erro ${response.status}: ${response.statusText}`);
                 }
                 
                 checklists = await response.json();
-                console.log('✅ Dados carregados:', checklists.length, 'checklists');
+                console.log('✅ Dados carregados:', checklists.length);
             } catch (error) {
-                console.error('❌ Erro ao carregar dados:', error.message);
+                console.error('❌ Erro:', error.message);
                 alert('❌ Erro ao carregar dados: ' + error.message);
             }
         }
 
         async function salvarChecklistBD(checklist) {
-            console.log('📝 Enviando checklist...');
+            console.log('📝 Salvando checklist...');
             console.log('📊 Dados:', {
                 motorista: checklist.motorista,
                 placa: checklist.placa,
-                modelo: checklist.modelo,
-                tem_anomalia: checklist.tem_anomalia,
-                tamanho_foto_dentro: checklist.foto_gaiola_dentro ? (checklist.foto_gaiola_dentro.length / 1024).toFixed(2) + ' KB' : 'sem foto',
-                tamanho_foto_fora: checklist.foto_gaiola_fora ? (checklist.foto_gaiola_fora.length / 1024).toFixed(2) + ' KB' : 'sem foto'
+                modelo: checklist.modelo
             });
 
             try {
@@ -77,21 +99,21 @@
                     body: JSON.stringify(checklist)
                 });
                 
-                console.log('📡 Status da resposta:', response.status);
+                console.log('📡 Status:', response.status);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('❌ Erro do Supabase:', errorText);
+                    console.error('❌ Erro:', errorText);
                     alert('❌ Erro ' + response.status + ': ' + errorText);
                     return null;
                 }
                 
                 const data = await response.json();
-                console.log('✅ Checklist salvo com sucesso!', data);
+                console.log('✅ Sucesso!');
                 return data[0];
             } catch (error) {
-                console.error('❌ Erro na requisição:', error.message);
-                alert('❌ Erro ao salvar: ' + error.message);
+                console.error('❌ Erro:', error.message);
+                alert('❌ Erro: ' + error.message);
                 return null;
             }
         }
@@ -102,7 +124,6 @@
         function fazerLogin(nome, placa) {
             motoristaAtual = { nome: nome.trim(), placa: placa.trim().toUpperCase() };
             localStorage.setItem('@ChecklistBoiadeiro:motorista', JSON.stringify(motoristaAtual));
-            console.log('✅ Login realizado:', motoristaAtual);
             return true;
         }
 
@@ -161,8 +182,6 @@
                 const file = e.target.files[0];
                 if (!file) return;
                 
-                console.log('📷 Arquivo selecionado:', file.name, (file.size / 1024).toFixed(2), 'KB');
-                
                 if (file.size > 5 * 1024 * 1024) {
                     alert('⚠️ Imagem muito grande! Máximo 5MB.');
                     return;
@@ -197,8 +216,6 @@
                         
                         const imagemBase64 = canvas.toDataURL('image/jpeg', 0.2);
                         fotos[tipo] = imagemBase64;
-                        
-                        console.log('📸 Foto comprimida:', (imagemBase64.length / 1024).toFixed(2), 'KB');
                         
                         const preview = document.getElementById(`preview_${tipo}`);
                         if (preview) {
@@ -517,15 +534,11 @@
         async function salvarChecklist(event) {
             event.preventDefault();
             
-            console.log('🚀 INICIANDO SALVAMENTO...');
+            console.log('🚀 Salvando...');
             
             const motorista = getMotoristaLogado();
             if (!motorista) { showLogin(); return; }
 
-            console.log('📸 Verificando fotos...');
-            console.log('  - Gaiola Dentro:', fotos.gaiolaDentro ? '✅' : '❌');
-            console.log('  - Gaiola Fora:', fotos.gaiolaFora ? '✅' : '❌');
-            
             if (!fotos.gaiolaDentro) {
                 alert('❌ Tire a foto da gaiola (DENTRO)!');
                 return;
@@ -536,8 +549,6 @@
             }
 
             const modelo = document.getElementById('modelo').value;
-            console.log('🚛 Modelo:', modelo);
-            
             if (!modelo) {
                 alert('❌ Selecione o modelo do veículo!');
                 return;
@@ -644,9 +655,7 @@
         // INICIAR
         // ============================================
         async function iniciarApp() {
-            console.log('🔄 Iniciando app...');
             await carregarDados();
-            console.log('✅ App pronto!');
             showLogin();
         }
         
