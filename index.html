@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checklist Boiadeiro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        // ============================================
+        // CONFIGURAÇÃO DO SUPABASE
+        // ============================================
+        const SUPABASE_URL = 'https://dibarwapqintkjvifkbm.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Mm5CXywYX1pW7dbsqRyRFQ_gc-0jkcb';
+
+        // ============================================
+        // MOTORISTAS LIBERADOS
+        // ============================================
+        const MOTORISTAS = {
+            'joao': { senha: '1234', nome: 'João Silva' },
+            'carlos': { senha: '1234', nome: 'Carlos Santos' },
+            'pedro': { senha: '1234', nome: 'Pedro Oliveira' },
+            'rafael': { senha: '1234', nome: 'Rafael Souza' },
+            'tiago': { senha: '1234', nome: 'Tiago Lima' }
+        };
+
+        // ============================================
+        // DADOS GLOBAIS
+        // ============================================
+        let checklists = [];
+        let motoristaAtual = null;
+
+        // ============================================
+        // FUNÇÕES DO SUPABASE
+        // ============================================
+        async function carregarDados() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists?select=*&order=id.desc`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                checklists = await response.json();
+                console.log('✅ Dados carregados:', checklists.length, 'checklists');
+            } catch (error) {
+                console.error('❌ Erro ao carregar dados:', error);
+            }
+        }
+
+        async function salvarChecklistBD(checklist) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/checklists`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(checklist)
+                });
+                const data = await response.json();
+                return data[0];
+            } catch (error) {
+                console.error('❌ Erro ao salvar checklist:', error);
+                return null;
+            }
+        }
+
+        // ============================================
+        // FUNÇÕES DE AUTENTICAÇÃO
+        // ============================================
+        function fazerLogin(nome, senha) {
+            const motorista = MOTORISTAS[nome.toLowerCase()];
+            if (motorista && motorista.senha === senha) {
+                motoristaAtual = { nome: motorista.nome, login: nome.toLowerCase() };
+                localStorage.setItem('@ChecklistBoiadeiro:motorista', JSON.stringify(motoristaAtual));
+                return true;
+            }
+            return false;
+        }
+
+        function getMotoristaLogado() {
+            if (motoristaAtual) return motoristaAtual;
+            const saved = localStorage.getItem('@ChecklistBoiadeiro:motorista');
+            if (saved) {
+                motoristaAtual = JSON.parse(saved);
+                return motoristaAtual;
+            }
+            return null;
+        }
+
+        function logout() {
+            if (confirm('Deseja realmente sair?')) {
+                localStorage.removeItem('@ChecklistBoiadeiro:motorista');
+                motoristaAtual = null;
+                showLogin();
+            }
+        }
+
+        // ============================================
+        // FUNÇÃO PARA CAPTURAR GPS
+        // ============================================
+        function capturarGPS() {
+            return new Promise((resolve) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            resolve({
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude,
+                                localizacao: `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`
+                            });
+                        },
+                        () => {
+                            resolve({ latitude: null, longitude: null, localizacao: 'Não disponível' });
+                        }
+                    );
+                } else {
+                    resolve({ latitude: null, longitude: null, localizacao: 'GPS não disponível' });
+                }
+            });
+        }
+
+        // ============================================
+        // TELA DE LOGIN
+        // ============================================
+        function showLogin() {
+            const motorista = getMotoristaLogado();
+            if (motorista) {
+                showDashboard();
+                return;
+            }
+
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-8">
+                        <div class="flex justify-end">
+                            <button onclick="toggleDarkMode()" class="text-2xl">🌙</button>
+                        </div>
+                        <div class="text-center mb-8">
+                            <div class="text-6xl mb-3">🐂</div>
+                            <h1 class="text-4xl font-bold text-green-700 dark:text-green-400">
+                                Checklist Boiadeiro
+                            </h1>
+                            <p class="text-gray-500 dark:text-gray-400 mt-2 text-sm">
+                                Vistoria de Veículos e Embarque
+                            </p>
+                        </div>
+                        <form onsubmit="handleLogin(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">👤 Motorista</label>
+                                <input type="text" id="nomeMotorista" placeholder="Digite seu nome" class="w-full px-4 py-3 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🔒 Senha</label>
+                                <input type="password" id="senhaMotorista" placeholder="••••••••" class="w-full px-4 py-3 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <button type="submit" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 rounded-lg transition shadow-lg">
+                                Entrar
+                            </button>
+                        </form>
+                        <div class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+                            <p>👨‍🌾 Motoristas: joão, carlos, pedro, rafael, tiago</p>
+                            <p class="mt-1">🔑 Senha: 1234 para todos</p>
+                        </div>
+                        <div class="mt-8 text-center text-xs text-gray-500">© 2026 Checklist Boiadeiro</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const nome = document.getElementById('nomeMotorista').value;
+            const senha = document.getElementById('senhaMotorista').value;
+            
+            if (fazerLogin(nome, senha)) {
+                showDashboard();
+            } else {
+                alert('❌ Nome ou senha inválidos!\n\n📌 Use:\n- joão / 1234\n- carlos / 1234\n- pedro / 1234\n- rafael / 1234\n- tiago / 1234');
+            }
+        }
+
+        // ============================================
+        // TELA DE DASHBOARD
+        // ============================================
+        function showDashboard() {
+            const motorista = getMotoristaLogado();
+            if (!motorista) { showLogin(); return; }
+
+            const total = checklists.length;
+            const concluidos = checklists.filter(c => c.status === 'Concluído').length;
+            const pendentes = checklists.filter(c => c.status === 'Pendente').length;
+            const meusChecklists = checklists.filter(c => c.motorista === motorista.nome);
+
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+                    <div class="flex flex-wrap justify-between items-center mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📋 Dashboard</h1>
+                            <p class="text-gray-500 dark:text-gray-400">Bem-vindo, <strong>${motorista.nome}</strong>! 🐂</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mt-3 md:mt-0">
+                            <button onclick="showNovoChecklist()" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">📸 Novo Checklist</button>
+                            <button onclick="showHistorico()" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">📊 Histórico</button>
+                            <button onclick="toggleDarkMode()" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded-lg text-sm">🌙</button>
+                            <button onclick="logout()" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600">Sair</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow border-l-4 border-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">📋 Total</p>
+                            <p class="text-2xl font-bold text-gray-800 dark:text-white">${total}</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow border-l-4 border-green-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">✅ Concluídos</p>
+                            <p class="text-2xl font-bold text-green-600">${concluidos}</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow border-l-4 border-yellow-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">⏳ Pendentes</p>
+                            <p class="text-2xl font-bold text-yellow-600">${pendentes}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
+                        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">📋 Meus Checklists</h2>
+                        ${meusChecklists.length === 0 ? `
+                            <p class="text-center text-gray-500 dark:text-gray-400 py-4">Nenhum checklist encontrado.</p>
+                        ` : meusChecklists.slice(0, 5).map(c => `
+                            <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                <div>
+                                    <p class="font-medium text-gray-800 dark:text-white">🚛 ${c.placa} - ${c.modelo}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">${new Date(c.criado_em).toLocaleDateString('pt-BR')} • ${c.localizacao || 'Sem local'}</p>
+                                </div>
+                                <div>
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                        ${meusChecklists.length > 5 ? `<p class="text-center text-sm text-gray-500 mt-2">+ ${meusChecklists.length - 5} mais...</p>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // TELA DE NOVO CHECKLIST
+        // ============================================
+        function showNovoChecklist() {
+            const motorista = getMotoristaLogado();
+            if (!motorista) { showLogin(); return; }
+
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+                    <div class="flex flex-wrap justify-between items-center mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📸 Novo Checklist</h1>
+                            <p class="text-gray-500 dark:text-gray-400">Preencha as informações da vistoria</p>
+                        </div>
+                        <div class="flex gap-2 mt-3 md:mt-0">
+                            <button onclick="showDashboard()" class="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">← Voltar</button>
+                            <button onclick="toggleDarkMode()" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded-lg text-sm">🌙</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
+                        <form id="formChecklist" onsubmit="salvarChecklist(event)" class="space-y-4">
+                            <!-- Veículo -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Placa *</label>
+                                    <input type="text" id="placa" placeholder="ABC-1234" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Modelo *</label>
+                                    <input type="text" id="modelo" placeholder="Scania R450" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white" required>
+                                </div>
+                            </div>
+
+                            <!-- Fotos -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-3">📸 Fotos Obrigatórias</h3>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gaiola - Dentro *</label>
+                                        <input type="text" id="fotoDentro" placeholder="Cole o link da foto" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                                        <p class="text-xs text-gray-500 mt-1">📱 No celular, tire a foto e cole o link</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gaiola - Fora *</label>
+                                        <input type="text" id="fotoFora" placeholder="Cole o link da foto" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                                        <p class="text-xs text-gray-500 mt-1">📱 No celular, tire a foto e cole o link</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Anomalias -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <h3 class="text-md font-semibold text-gray-800 dark:text-white mb-3">⚠️ Anomalias no Embarque</h3>
+                                
+                                <div class="flex items-center gap-4 mb-3">
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Houve anomalia?</label>
+                                    <label class="flex items-center gap-2">
+                                        <input type="radio" name="anomalia" value="sim" onchange="mostrarAnomalia(true)"> Sim
+                                    </label>
+                                    <label class="flex items-center gap-2">
+                                        <input type="radio" name="anomalia" value="nao" checked onchange="mostrarAnomalia(false)"> Não
+                                    </label>
+                                </div>
+
+                                <div id="campoAnomalia" class="hidden">
+                                    <div class="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">📝 Descreva a anomalia</label>
+                                            <textarea id="descricaoAnomalia" rows="3" placeholder="Descreva o que aconteceu..." class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"></textarea>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">📸 Foto da anomalia (opcional)</label>
+                                            <input type="text" id="fotoAnomalia" placeholder="Cole o link da foto" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Localização -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="text-md font-semibold text-gray-800 dark:text-white">📍 Localização</h3>
+                                    <button type="button" onclick="capturarLocalizacao()" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
+                                        📍 Capturar GPS
+                                    </button>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+                                    <p id="localizacaoTexto" class="text-sm text-gray-600 dark:text-gray-300">Clique em "Capturar GPS" para obter sua localização</p>
+                                    <input type="hidden" id="latitude" value="">
+                                    <input type="hidden" id="longitude" value="">
+                                </div>
+                            </div>
+
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-4 flex gap-3">
+                                <button type="submit" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-lg transition">✅ Salvar Checklist</button>
+                                <button type="reset" class="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-white font-bold py-3 rounded-lg transition" onclick="limparFormulario()">🔄 Limpar</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // FUNÇÕES DO CHECKLIST
+        // ============================================
+        function mostrarAnomalia(show) {
+            document.getElementById('campoAnomalia').classList.toggle('hidden', !show);
+        }
+
+        function limparFormulario() {
+            document.getElementById('placa').value = '';
+            document.getElementById('modelo').value = '';
+            document.getElementById('fotoDentro').value = '';
+            document.getElementById('fotoFora').value = '';
+            document.getElementById('fotoAnomalia').value = '';
+            document.getElementById('descricaoAnomalia').value = '';
+            document.getElementById('localizacaoTexto').textContent = 'Clique em "Capturar GPS" para obter sua localização';
+            document.getElementById('latitude').value = '';
+            document.getElementById('longitude').value = '';
+            document.querySelector('input[name="anomalia"][value="nao"]').checked = true;
+            document.getElementById('campoAnomalia').classList.add('hidden');
+        }
+
+        async function capturarLocalizacao() {
+            const posicao = await capturarGPS();
+            document.getElementById('latitude').value = posicao.latitude || '';
+            document.getElementById('longitude').value = posicao.longitude || '';
+            document.getElementById('localizacaoTexto').textContent = posicao.localizacao || 'Localização não disponível';
+            
+            if (!posicao.latitude) {
+                alert('⚠️ Não foi possível capturar a localização. Verifique se o GPS está ativo.');
+            } else {
+                alert('✅ Localização capturada com sucesso!');
+            }
+        }
+
+        async function salvarChecklist(event) {
+            event.preventDefault();
+            
+            const motorista = getMotoristaLogado();
+            if (!motorista) { showLogin(); return; }
+
+            const placa = document.getElementById('placa').value;
+            const modelo = document.getElementById('modelo').value;
+            const fotoDentro = document.getElementById('fotoDentro').value || 'Sem foto';
+            const fotoFora = document.getElementById('fotoFora').value || 'Sem foto';
+            const temAnomalia = document.querySelector('input[name="anomalia"]:checked').value === 'sim';
+            const descricaoAnomalia = document.getElementById('descricaoAnomalia').value || '';
+            const fotoAnomalia = document.getElementById('fotoAnomalia').value || '';
+            const latitude = document.getElementById('latitude').value || null;
+            const longitude = document.getElementById('longitude').value || null;
+            const localizacao = document.getElementById('localizacaoTexto').textContent || 'Não disponível';
+
+            if (!placa || !modelo) {
+                alert('❌ Preencha a placa e o modelo do veículo!');
+                return;
+            }
+
+            const checklist = {
+                motorista: motorista.nome,
+                placa: placa,
+                modelo: modelo,
+                foto_gaiola_dentro: fotoDentro,
+                foto_gaiola_fora: fotoFora,
+                foto_anomalia: fotoAnomalia || null,
+                tem_anomalia: temAnomalia,
+                descricao_anomalia: descricaoAnomalia || null,
+                latitude: latitude,
+                longitude: longitude,
+                localizacao: localizacao,
+                status: 'Concluído',
+                criado_em: new Date().toISOString()
+            };
+
+            const resultado = await salvarChecklistBD(checklist);
+            if (resultado) {
+                checklists.unshift(resultado);
+                alert('✅ Checklist salvo com sucesso!');
+                showDashboard();
+            } else {
+                alert('❌ Erro ao salvar o checklist!');
+            }
+        }
+
+        // ============================================
+        // TELA DE HISTÓRICO
+        // ============================================
+        function showHistorico() {
+            const motorista = getMotoristaLogado();
+            if (!motorista) { showLogin(); return; }
+
+            const meusChecklists = checklists.filter(c => c.motorista === motorista.nome);
+
+            document.getElementById('root').innerHTML = `
+                <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+                    <div class="flex flex-wrap justify-between items-center mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📊 Meu Histórico</h1>
+                            <p class="text-gray-500 dark:text-gray-400">${meusChecklists.length} checklists realizados</p>
+                        </div>
+                        <div class="flex gap-2 mt-3 md:mt-0">
+                            <button onclick="showDashboard()" class="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600">← Voltar</button>
+                            <button onclick="toggleDarkMode()" class="px-4 py-2 bg-gray-300 dark:bg-gray-700 rounded-lg text-sm">🌙</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                        ${meusChecklists.length === 0 ? `
+                            <p class="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum checklist encontrado.</p>
+                        ` : `
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 dark:bg-gray-700">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left">Data</th>
+                                            <th class="px-4 py-3 text-left">Placa</th>
+                                            <th class="px-4 py-3 text-left">Modelo</th>
+                                            <th class="px-4 py-3 text-left">Anomalia</th>
+                                            <th class="px-4 py-3 text-left">Status</th>
+                                            <th class="px-4 py-3 text-left">Localização</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${meusChecklists.map(c => `
+                                            <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                                <td class="px-4 py-3">${new Date(c.criado_em).toLocaleDateString('pt-BR')}</td>
+                                                <td class="px-4 py-3 font-medium">${c.placa}</td>
+                                                <td class="px-4 py-3">${c.modelo}</td>
+                                                <td class="px-4 py-3">${c.tem_anomalia ? '⚠️ Sim' : '✅ Não'}</td>
+                                                <td class="px-4 py-3">
+                                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${c.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${c.status}</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-xs truncate max-w-[100px]">${c.localizacao || '-'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // FUNÇÕES GLOBAIS
+        // ============================================
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        // ============================================
+        // INICIAR (CARREGAR DADOS DO BANCO)
+        // ============================================
+        async function iniciarApp() {
+            await carregarDados();
+            showLogin();
+        }
+        
+        iniciarApp();
+    </script>
+</body>
+</html>
