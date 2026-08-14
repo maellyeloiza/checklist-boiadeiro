@@ -113,7 +113,7 @@
         }
 
         // ============================================
-        // FUNÇÃO PARA TIRAR FOTO
+        // FUNÇÃO PARA TIRAR FOTO (COMPRIMIDA)
         // ============================================
         function tirarFoto(tipo) {
             const input = document.createElement('input');
@@ -126,24 +126,52 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
-                        const imagemBase64 = event.target.result;
-                        fotos[tipo] = imagemBase64;
-                        
-                        // Mostrar preview da foto
-                        const preview = document.getElementById(`preview_${tipo}`);
-                        if (preview) {
-                            preview.src = imagemBase64;
-                            preview.classList.remove('hidden');
-                            preview.classList.add('block');
-                        }
-                        
-                        // Mudar texto do botão
-                        const btn = document.getElementById(`btn_foto_${tipo}`);
-                        if (btn) {
-                            btn.textContent = '📸 Foto tirada!';
-                            btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                            btn.classList.add('bg-green-500', 'hover:bg-green-600');
-                        }
+                        // Comprimir a imagem
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const maxWidth = 800;
+                            const maxHeight = 600;
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            if (width > height) {
+                                if (width > maxWidth) {
+                                    height *= maxWidth / width;
+                                    width = maxWidth;
+                                }
+                            } else {
+                                if (height > maxHeight) {
+                                    width *= maxHeight / height;
+                                    height = maxHeight;
+                                }
+                            }
+                            
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            
+                            // Salvar como JPEG com qualidade 70%
+                            const imagemBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                            fotos[tipo] = imagemBase64;
+                            
+                            // Mostrar preview
+                            const preview = document.getElementById(`preview_${tipo}`);
+                            if (preview) {
+                                preview.src = imagemBase64;
+                                preview.classList.remove('hidden');
+                                preview.classList.add('block');
+                            }
+                            
+                            const btn = document.getElementById(`btn_foto_${tipo}`);
+                            if (btn) {
+                                btn.textContent = '✅ Foto tirada!';
+                                btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                                btn.classList.add('bg-green-500', 'hover:bg-green-600');
+                            }
+                        };
+                        img.src = event.target.result;
                     };
                     reader.readAsDataURL(file);
                 }
@@ -284,6 +312,9 @@
             const motorista = getMotoristaLogado();
             if (!motorista) { showLogin(); return; }
 
+            // Resetar fotos
+            fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
+
             // Capturar GPS automaticamente
             setTimeout(async () => {
                 const posicao = await capturarGPS();
@@ -421,7 +452,6 @@
             document.querySelector('input[name="anomalia"][value="nao"]').checked = true;
             document.getElementById('campoAnomalia').classList.add('hidden');
             
-            // Limpar fotos
             fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
             ['gaiolaDentro', 'gaiolaFora', 'anomalia'].forEach(tipo => {
                 const preview = document.getElementById(`preview_${tipo}`);
@@ -438,7 +468,6 @@
                 }
             });
             
-            // Recapturar GPS
             setTimeout(async () => {
                 const posicao = await capturarGPS();
                 document.getElementById('latitude').value = posicao.latitude || '';
@@ -460,17 +489,17 @@
             const longitude = document.getElementById('longitude').value || null;
             const localizacao = document.getElementById('localizacaoTexto').textContent || 'Não disponível';
 
-            // Verificar se as fotos obrigatórias foram tiradas
+            if (!modelo) {
+                alert('❌ Selecione o modelo do veículo!');
+                return;
+            }
+
             if (!fotos.gaiolaDentro) {
                 alert('❌ Tire a foto da gaiola (dentro)!');
                 return;
             }
             if (!fotos.gaiolaFora) {
                 alert('❌ Tire a foto da gaiola (fora)!');
-                return;
-            }
-            if (!modelo) {
-                alert('❌ Selecione o modelo do veículo!');
                 return;
             }
 
