@@ -17,7 +17,6 @@
         let usuarioAtual = null;
         let fotos = { gaiolaDentro: null, gaiolaFora: null, anomalia: null };
         let proximoId = 1;
-        let tipoUsuario = null; // 'admin' ou 'motorista'
 
         // ============================================
         // FUNÇÕES DO LOCALSTORAGE
@@ -31,7 +30,6 @@
                     proximoId = Math.max(...checklists.map(c => c.id)) + 1;
                 }
             } else {
-                // Dados de exemplo
                 checklists = [
                     { id: 1, motorista: 'João Silva', placa: 'ABC-1234', modelo: 'Truck', transportadora: 'Transportadora Alpha', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: false, descricao_anomalia: '', latitude: '-23.550520', longitude: '-46.633308', localizacao: 'São Paulo - SP', status: 'Concluído', criado_em: new Date().toISOString() },
                     { id: 2, motorista: 'Carlos Santos', placa: 'XYZ-5678', modelo: 'Carreta 36', transportadora: 'Transportadora Beta', foto_gaiola_dentro: '', foto_gaiola_fora: '', tem_anomalia: true, descricao_anomalia: 'Pneu dianteiro danificado', latitude: '-22.906847', longitude: '-47.061200', localizacao: 'Campinas - SP', status: 'Concluído', criado_em: new Date().toISOString() },
@@ -55,6 +53,16 @@
             checklists.unshift(checklist);
             salvarDados();
             return checklist;
+        }
+
+        function excluirChecklistLocal(id) {
+            if (!confirm('⚠️ Tem certeza que deseja excluir este checklist?\n\nEsta ação não pode ser desfeita!')) {
+                return false;
+            }
+            checklists = checklists.filter(c => c.id !== id);
+            salvarDados();
+            console.log('🗑️ Checklist excluído:', id);
+            return true;
         }
 
         // ============================================
@@ -287,7 +295,7 @@
         }
 
         // ============================================
-        // TELA DE LOGIN COM OPÇÕES
+        // TELA DE LOGIN
         // ============================================
         function showLogin() {
             const usuario = getUsuarioLogado();
@@ -316,7 +324,6 @@
                             </p>
                         </div>
 
-                        <!-- Escolha do tipo de usuário -->
                         <div class="flex gap-3 mb-6">
                             <button onclick="showLoginAdmin()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-bold">
                                 👑 Admin
@@ -367,7 +374,6 @@
             const nome = document.getElementById('adminNome').value.trim();
             const senha = document.getElementById('adminSenha').value.trim();
 
-            // Admin padrão
             if (nome === 'Admin' && senha === 'admin123') {
                 usuarioAtual = { nome: 'Admin', tipo: 'admin' };
                 localStorage.setItem('@ChecklistBoiadeiro:usuario', JSON.stringify(usuarioAtual));
@@ -448,7 +454,23 @@
         }
 
         // ============================================
-        // DASHBOARD ADMIN (VÊ TUDO)
+        // EXCLUIR CHECKLIST
+        // ============================================
+        function excluirChecklist(id) {
+            const usuario = getUsuarioLogado();
+            if (!usuario || usuario.tipo !== 'admin') {
+                alert('❌ Apenas administradores podem excluir checklists!');
+                return;
+            }
+
+            if (excluirChecklistLocal(id)) {
+                alert('🗑️ Checklist excluído com sucesso!');
+                showHistoricoAdmin();
+            }
+        }
+
+        // ============================================
+        // DASHBOARD ADMIN
         // ============================================
         function showDashboardAdmin() {
             const usuario = getUsuarioLogado();
@@ -463,7 +485,7 @@
                     <div class="flex flex-wrap justify-between items-center mb-6">
                         <div>
                             <h1 class="text-2xl font-bold text-gray-800 dark:text-white">📊 Dashboard - Admin</h1>
-                            <p class="text-gray-500 dark:text-gray-400">👑 Bem-vindo, <strong>${usuario.nome}</strong>! Visão geral de todos os checklists</p>
+                            <p class="text-gray-500 dark:text-gray-400">👑 Bem-vindo, <strong>${usuario.nome}</strong>!</p>
                         </div>
                         <div class="flex flex-wrap gap-2 mt-3 md:mt-0">
                             <button onclick="showNovoChecklist()" class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600">📸 Novo Checklist</button>
@@ -508,7 +530,7 @@
         }
 
         // ============================================
-        // DASHBOARD MOTORISTA (SÓ VÊ O QUE É DELE)
+        // DASHBOARD MOTORISTA
         // ============================================
         function showDashboardMotorista() {
             const usuario = getUsuarioLogado();
@@ -585,8 +607,9 @@
                 document.getElementById('localizacaoTexto').textContent = posicao.localizacao || 'Localização não disponível';
             }, 500);
 
-            // Determinar a placa para o formulário
             const placaValue = usuario.tipo === 'motorista' ? usuario.placa : '';
+            const nomeValue = usuario.tipo === 'motorista' ? usuario.nome : '';
+            const transportadoraValue = usuario.tipo === 'motorista' ? usuario.transportadora : '';
 
             document.getElementById('root').innerHTML = `
                 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
@@ -607,11 +630,11 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🏢 Transportadora</label>
-                                    <input type="text" id="transportadora" value="${usuario.tipo === 'motorista' ? usuario.transportadora : ''}" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white ${usuario.tipo === 'motorista' ? 'bg-gray-100 dark:bg-gray-600' : ''}" ${usuario.tipo === 'motorista' ? 'readonly' : 'required'}>
+                                    <input type="text" id="transportadora" value="${transportadoraValue}" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white ${usuario.tipo === 'motorista' ? 'bg-gray-100 dark:bg-gray-600' : ''}" ${usuario.tipo === 'motorista' ? 'readonly' : 'required'}>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">👤 Motorista</label>
-                                    <input type="text" id="motorista" value="${usuario.tipo === 'motorista' ? usuario.nome : ''}" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white ${usuario.tipo === 'motorista' ? 'bg-gray-100 dark:bg-gray-600' : ''}" ${usuario.tipo === 'motorista' ? 'readonly' : 'required'}>
+                                    <input type="text" id="motorista" value="${nomeValue}" class="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white ${usuario.tipo === 'motorista' ? 'bg-gray-100 dark:bg-gray-600' : ''}" ${usuario.tipo === 'motorista' ? 'readonly' : 'required'}>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">🚛 Placa</label>
@@ -792,7 +815,7 @@
         }
 
         // ============================================
-        // HISTÓRICO ADMIN (VÊ TODOS)
+        // HISTÓRICO ADMIN (COM EXCLUIR)
         // ============================================
         function showHistoricoAdmin() {
             const usuario = getUsuarioLogado();
@@ -826,6 +849,7 @@
                                         <th class="px-4 py-3 text-left">Anomalia</th>
                                         <th class="px-4 py-3 text-left">Status</th>
                                         <th class="px-4 py-3 text-left">Fotos</th>
+                                        <th class="px-4 py-3 text-left">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -845,6 +869,11 @@
                                                 <button onclick="verFoto('${c.foto_gaiola_fora || ''}', 'Gaiola Fora - ${c.placa}')" class="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">📷 Fora</button>
                                                 ${c.foto_anomalia ? `<button onclick="verFoto('${c.foto_anomalia}', 'Anomalia - ${c.placa}')" class="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 ml-1">⚠️</button>` : ''}
                                             </td>
+                                            <td class="px-4 py-3">
+                                                <button onclick="excluirChecklist(${c.id})" class="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">
+                                                    🗑️ Excluir
+                                                </button>
+                                            </td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -856,7 +885,7 @@
         }
 
         // ============================================
-        // HISTÓRICO MOTORISTA (SÓ O QUE É DELE)
+        // HISTÓRICO MOTORISTA (SEM EXCLUIR)
         // ============================================
         function showHistoricoMotorista() {
             const usuario = getUsuarioLogado();
